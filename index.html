@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TOEIC 英単語クイズ</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #4A90E2;
+      --primary-dark: #357ABD;
+      --review: #9B59B6;
+      --review-dark: #7D3C98;
+      --correct: #27AE60;
+      --wrong: #E74C3C;
+      --bg: #F0F4F8;
+      --card: #FFFFFF;
+      --text: #2D3748;
+      --subtext: #718096;
+      --border: #E2E8F0;
+      --shadow: 0 4px 20px rgba(0,0,0,0.10);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      padding: 16px 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(74,144,226,0.4);
+      transition: background 0.3s;
+    }
+
+    header.review-mode {
+      background: var(--review);
+      box-shadow: 0 2px 8px rgba(155,89,182,0.4);
+    }
+
+    header h1 { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+    header p  { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+
+    /* ===== MAIN ===== */
+    main {
+      width: 100%;
+      max-width: 480px;
+      padding: 16px;
+      flex: 1;
+    }
+
+    /* ===== SCREEN MANAGEMENT ===== */
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* ===== START SCREEN ===== */
+    .start-card {
+      background: var(--card);
+      border-radius: 20px;
+      padding: 28px 20px 24px;
+      box-shadow: var(--shadow);
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .start-card .icon { font-size: 56px; margin-bottom: 12px; }
+    .start-card h2   { font-size: 21px; margin-bottom: 6px; }
+    .start-card > p  { color: var(--subtext); font-size: 13px; line-height: 1.6; margin-bottom: 20px; }
+
+    /* level select */
+    .level-select { margin-bottom: 20px; }
+    .level-select label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--subtext); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .level-btns { display: flex; gap: 8px; justify-content: center; }
+    .level-btn {
+      padding: 8px 18px; border-radius: 20px; border: 2px solid var(--border);
+      background: white; font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s; color: var(--subtext);
+    }
+    .level-btn.selected { border-color: var(--primary); background: var(--primary); color: white; }
+
+    /* ===== MODE CARDS ===== */
+    .mode-cards { display: flex; flex-direction: column; gap: 12px; }
+
+    .mode-card {
+      border-radius: 16px;
+      padding: 18px 20px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .mode-card:active { transform: scale(0.98); }
+    .mode-card:disabled, .mode-card[disabled] {
+      opacity: 0.45; cursor: not-allowed; pointer-events: none;
+    }
+
+    .mode-card.challenge {
+      background: linear-gradient(135deg, #EBF4FF 0%, #DBEAFE 100%);
+      border-color: #BFDBFE;
+    }
+    .mode-card.challenge:not([disabled]):hover {
+      box-shadow: 0 4px 16px rgba(74,144,226,0.25);
+    }
+
+    .mode-card.review {
+      background: linear-gradient(135deg, #F5EEFF 0%, #EDE9FE 100%);
+      border-color: #DDD6FE;
+    }
+    .mode-card.review:not([disabled]):hover {
+      box-shadow: 0 4px 16px rgba(155,89,182,0.25);
+    }
+
+    .mode-icon { font-size: 40px; flex-shrink: 0; }
+
+    .mode-info { flex: 1; }
+    .mode-title { font-size: 17px; font-weight: 800; margin-bottom: 3px; }
+    .mode-card.challenge .mode-title { color: var(--primary); }
+    .mode-card.review    .mode-title { color: var(--review); }
+    .mode-desc { font-size: 12px; color: var(--subtext); line-height: 1.5; }
+
+    .mode-badge {
+      background: var(--review);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .mode-arrow { font-size: 18px; color: var(--subtext); flex-shrink: 0; }
+
+    /* ===== QUIZ MODE BANNER ===== */
+    .mode-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .mode-banner.challenge { background: #EBF4FF; color: var(--primary); }
+    .mode-banner.review    { background: #F5EEFF; color: var(--review); }
+
+    /* ===== STATS BAR ===== */
+    .stats-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--card); border-radius: 14px; padding: 12px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .stat { text-align: center; }
+    .stat-val { font-size: 20px; font-weight: 700; color: var(--primary); }
+    .stat-val.review-color { color: var(--review); }
+    .stat-label { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+    .stat-divider { width: 1px; height: 32px; background: var(--border); }
+
+    /* ===== PROGRESS ===== */
+    .progress-wrap {
+      background: var(--border); border-radius: 8px;
+      height: 6px; margin-bottom: 14px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #63B3ED);
+      border-radius: 8px; transition: width 0.4s ease;
+    }
+    .progress-bar.review-bar {
+      background: linear-gradient(90deg, var(--review), #C39BD3);
+    }
+
+    /* ===== QUESTION CARD ===== */
+    .question-card {
+      background: var(--card); border-radius: 20px;
+      padding: 24px 20px 20px; box-shadow: var(--shadow);
+      margin-bottom: 14px; text-align: center;
+    }
+    .question-num {
+      font-size: 12px; color: var(--subtext); margin-bottom: 12px;
+      font-weight: 600; letter-spacing: 0.5px;
+    }
+    .word {
+      font-size: 36px; font-weight: 800; color: var(--text);
+      letter-spacing: -1px; margin-bottom: 8px; word-break: break-all;
+    }
+    .pronunciation { font-size: 14px; color: var(--subtext); margin-bottom: 8px; font-style: italic; }
+    .part-of-speech {
+      display: inline-block; background: #EBF4FF; color: var(--primary);
+      font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+    }
+    .part-of-speech.review-pos { background: #F5EEFF; color: var(--review); }
+
+    /* ===== CHOICES ===== */
+    .choices { display: flex; flex-direction: column; gap: 10px; }
+    .choice-btn {
+      width: 100%; padding: 15px 18px;
+      background: var(--card); border: 2px solid var(--border);
+      border-radius: 14px; font-size: 15px; font-weight: 600; color: var(--text);
+      cursor: pointer; text-align: left; display: flex; align-items: center; gap: 12px;
+      transition: border-color 0.2s, background 0.2s, transform 0.1s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05); -webkit-appearance: none;
+    }
+    .choice-btn:active { transform: scale(0.98); }
+    .choice-letter {
+      width: 30px; height: 30px; background: var(--bg);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--subtext);
+      flex-shrink: 0; transition: background 0.2s, color 0.2s;
+    }
+    .choice-btn.correct { border-color: var(--correct); background: #F0FFF4; }
+    .choice-btn.correct .choice-letter { background: var(--correct); color: white; }
+    .choice-btn.wrong   { border-color: var(--wrong);   background: #FFF5F5; }
+    .choice-btn.wrong   .choice-letter { background: var(--wrong);   color: white; }
+    .choice-btn:disabled { cursor: default; }
+
+    /* ===== FEEDBACK ===== */
+    .feedback {
+      background: var(--card); border-radius: 16px; padding: 14px 18px;
+      margin-top: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: none; animation: fadeSlideUp 0.3s ease;
+    }
+    .feedback.show { display: block; }
+    .feedback-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .feedback-icon   { font-size: 20px; }
+    .feedback-title  { font-size: 15px; font-weight: 700; }
+    .feedback-title.correct { color: var(--correct); }
+    .feedback-title.wrong   { color: var(--wrong); }
+    .feedback-removed {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 11px; font-weight: 700; color: var(--correct);
+      background: #F0FFF4; border: 1px solid #9AE6B4;
+      padding: 2px 8px; border-radius: 20px; margin-left: 6px;
+    }
+    .feedback-answer  { font-size: 13px; color: var(--subtext); margin-bottom: 6px; }
+    .feedback-answer strong { color: var(--text); }
+    .feedback-example {
+      font-size: 13px; line-height: 1.6; color: var(--subtext);
+      border-top: 1px solid var(--border); padding-top: 8px;
+    }
+    .feedback-example em { color: var(--text); font-style: italic; }
+
+    .btn-next {
+      width: 100%; padding: 14px; background: var(--primary); color: white;
+      border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+      cursor: pointer; margin-top: 10px; transition: background 0.2s, transform 0.1s;
+      display: none;
+    }
+    .btn-next.show   { display: block; }
+    .btn-next.review { background: var(--review); }
+    .btn-next:active { filter: brightness(0.9); transform: scale(0.98); }
+
+    /* ===== RESULT SCREEN ===== */
+    .result-card {
+      background: var(--card); border-radius: 20px; padding: 28px 20px 24px;
+      box-shadow: var(--shadow); text-align: center; margin-top: 16px;
+    }
+    .result-emoji  { font-size: 68px; margin-bottom: 10px; }
+    .result-title  { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+    .result-score  {
+      font-size: 50px; font-weight: 800; color: var(--primary);
+      line-height: 1; margin: 14px 0 4px;
+    }
+    .result-score.review-score { color: var(--review); }
+    .result-score span { font-size: 20px; color: var(--subtext); font-weight: 600; }
+    .result-comment { font-size: 14px; color: var(--subtext); margin-bottom: 20px; line-height: 1.6; }
+    .result-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;
+    }
+    .result-stat { background: var(--bg); border-radius: 12px; padding: 12px 8px; }
+    .result-stat-val   { font-size: 22px; font-weight: 800; }
+    .result-stat-val.green { color: var(--correct); }
+    .result-stat-val.red   { color: var(--wrong); }
+    .result-stat-label { font-size: 12px; color: var(--subtext); margin-top: 3px; }
+
+    /* remaining wrong words info */
+    .remaining-info {
+      background: #FFF5F5; border: 1px solid #FED7D7;
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 13px; color: var(--wrong); font-weight: 600;
+      display: none;
+    }
+    .remaining-info.show { display: block; }
+    .remaining-info span { font-weight: 800; font-size: 16px; }
+
+    .cleared-info {
+      background: #F0FFF4; border: 1px solid #9AE6B4;
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;
+      font-size: 13px; color: var(--correct); font-weight: 600;
+      display: none;
+    }
+    .cleared-info.show { display: block; }
+
+    .btn-primary {
+      width: 100%; padding: 15px; background: var(--primary); color: white;
+      border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: filter 0.2s; margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(74,144,226,0.3);
+    }
+    .btn-primary:active { filter: brightness(0.9); }
+
+    .btn-review-start {
+      width: 100%; padding: 15px; background: var(--review); color: white;
+      border: none; border-radius: 14px; font-size: 16px; font-weight: 700;
+      cursor: pointer; transition: filter 0.2s; margin-bottom: 10px;
+      box-shadow: 0 4px 12px rgba(155,89,182,0.3);
+      display: none;
+    }
+    .btn-review-start.show { display: block; }
+    .btn-review-start:active { filter: brightness(0.9); }
+
+    .btn-outline {
+      width: 100%; padding: 13px; background: transparent;
+      color: var(--primary); border: 2px solid var(--primary);
+      border-radius: 14px; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-outline:active { background: #EBF4FF; }
+    .btn-outline.review-outline { color: var(--review); border-color: var(--review); }
+    .btn-outline.review-outline:active { background: #F5EEFF; }
+
+    /* ===== ANIMATIONS ===== */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-6px); }
+      40% { transform: translateX(6px); }
+      60% { transform: translateX(-4px); }
+      80% { transform: translateX(4px); }
+    }
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+    .animate-shake { animation: shake 0.4s ease; }
+    .animate-pop   { animation: pop 0.25s ease; }
+    .card-enter    { animation: fadeSlideUp 0.35s ease; }
+  </style>
+</head>
+<body>
+
+<header id="app-header">
+  <h1>📘 TOEIC 英単語クイズ</h1>
+  <p id="header-sub">4択で力試し！初心者向け</p>
+</header>
+
+<main>
+
+  <!-- ===== START SCREEN ===== -->
+  <div id="screen-start" class="screen active">
+    <div class="start-card">
+      <div class="icon">📚</div>
+      <h2>英単語トレーニング</h2>
+      <p>TOEICに出やすい英単語を<br>4択クイズで楽しく覚えよう！</p>
+
+      <div class="level-select">
+        <label>レベルを選択（挑戦モード）</label>
+        <div class="level-btns">
+          <button class="level-btn selected" data-level="beginner">初級</button>
+          <button class="level-btn" data-level="intermediate">中級</button>
+          <button class="level-btn" data-level="advanced">上級</button>
+        </div>
+      </div>
+
+      <div class="mode-cards">
+        <!-- 挑戦モード -->
+        <button class="mode-card challenge" id="btn-challenge">
+          <span class="mode-icon">🎯</span>
+          <div class="mode-info">
+            <div class="mode-title">挑戦モード</div>
+            <div class="mode-desc">レベルから10問出題。<br>間違えた単語は自動で苦手リストに追加！</div>
+          </div>
+          <span class="mode-arrow">›</span>
+        </button>
+
+        <!-- 復習モード -->
+        <button class="mode-card review" id="btn-review">
+          <span class="mode-icon">📝</span>
+          <div class="mode-info">
+            <div class="mode-title">復習モード</div>
+            <div class="mode-desc">苦手な単語だけを集中練習。<br>正解したら苦手リストから削除！</div>
+          </div>
+          <span class="mode-badge" id="review-badge">0語</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== QUIZ SCREEN ===== -->
+  <div id="screen-quiz" class="screen">
+    <div class="mode-banner" id="mode-banner">
+      <span id="mode-banner-icon"></span>
+      <span id="mode-banner-text"></span>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-val" id="stat-q">1</div>
+        <div class="stat-label">問題</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="stat-correct">0</div>
+        <div class="stat-label">正解</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="stat-streak">0</div>
+        <div class="stat-label">連続正解</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat">
+        <div class="stat-val" id="stat-total">10</div>
+        <div class="stat-label">全問題</div>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+    </div>
+
+    <div class="question-card card-enter" id="question-card">
+      <div class="question-num" id="question-num">問題 1 / 10</div>
+      <div class="word" id="word">word</div>
+      <div class="pronunciation" id="pronunciation"></div>
+      <div class="part-of-speech" id="pos"></div>
+    </div>
+
+    <div class="choices" id="choices"></div>
+
+    <div class="feedback" id="feedback">
+      <div class="feedback-header">
+        <span class="feedback-icon" id="fb-icon"></span>
+        <span class="feedback-title" id="fb-title"></span>
+        <span class="feedback-removed" id="fb-removed" style="display:none">✓ 苦手リストから削除</span>
+      </div>
+      <div class="feedback-answer" id="fb-answer"></div>
+      <div class="feedback-example" id="fb-example"></div>
+    </div>
+
+    <button class="btn-next" id="btn-next">次の問題へ →</button>
+  </div>
+
+  <!-- ===== RESULT SCREEN ===== -->
+  <div id="screen-result" class="screen">
+    <div class="result-card card-enter">
+      <div class="result-emoji" id="result-emoji">🎉</div>
+      <div class="result-title" id="result-title">クイズ終了！</div>
+      <div class="result-score" id="result-score">
+        <span id="result-correct">0</span>
+        <span> / </span>
+        <span id="result-total">10</span>
+      </div>
+      <div class="result-comment" id="result-comment"></div>
+
+      <div class="result-grid">
+        <div class="result-stat">
+          <div class="result-stat-val green" id="res-correct">0</div>
+          <div class="result-stat-label">正解数</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-val red" id="res-wrong">0</div>
+          <div class="result-stat-label">不正解数</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-val" id="res-rate" style="color:var(--primary)">0%</div>
+          <div class="result-stat-label">正答率</div>
+        </div>
+        <div class="result-stat">
+          <div class="result-stat-val" id="res-streak" style="color:#ED8936">0</div>
+          <div class="result-stat-label">最大連続正解</div>
+        </div>
+      </div>
+
+      <!-- 復習モード専用: 全問クリア -->
+      <div class="cleared-info" id="cleared-info">
+        🎊 苦手リストを全部クリアしました！
+      </div>
+
+      <!-- 復習モード専用: まだ残っている苦手単語 -->
+      <div class="remaining-info" id="remaining-info">
+        まだ苦手な単語が <span id="remaining-count">0</span> 語残っています
+      </div>
+
+      <!-- 挑戦モード後に苦手単語がある場合 -->
+      <button class="btn-review-start" id="btn-go-review">
+        📝 苦手単語を復習する（<span id="go-review-count">0</span>語）
+      </button>
+
+      <button class="btn-primary" id="btn-retry">もう一度チャレンジ</button>
+      <button class="btn-outline" id="btn-back">← モード選択に戻る</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ===== VOCABULARY DATABASE =====
+const WORDS = {
+  beginner: [
+    { word: "meeting",    pron: "/ˈmiːtɪŋ/",        pos: "名詞",     answer: "会議",             choices: ["会議","書類","電話","休憩"],                             ex: "We have a <em>meeting</em> at 3 PM. （午後3時に会議があります。）" },
+    { word: "send",       pron: "/sɛnd/",            pos: "動詞",     answer: "送る",             choices: ["送る","買う","読む","書く"],                             ex: "Please <em>send</em> me the report. （レポートを送ってください。）" },
+    { word: "office",     pron: "/ˈɔːfɪs/",          pos: "名詞",     answer: "オフィス・事務所", choices: ["オフィス・事務所","学校","病院","駅"],                    ex: "She works in the <em>office</em>. （彼女はオフィスで働いています。）" },
+    { word: "schedule",   pron: "/ˈskɛdʒuːl/",       pos: "名詞",     answer: "予定・スケジュール", choices: ["予定・スケジュール","給料","会社","上司"],              ex: "Check the <em>schedule</em> for next week. （来週の予定を確認してください。）" },
+    { word: "report",     pron: "/rɪˈpɔːrt/",        pos: "名詞",     answer: "報告書",           choices: ["報告書","計画","商品","費用"],                           ex: "Submit the <em>report</em> by Friday. （金曜日までに報告書を提出してください。）" },
+    { word: "customer",   pron: "/ˈkʌstəmər/",       pos: "名詞",     answer: "顧客",             choices: ["顧客","従業員","社長","部長"],                           ex: "The <em>customer</em> wants a refund. （顧客は返金を求めています。）" },
+    { word: "order",      pron: "/ˈɔːrdər/",         pos: "動詞/名詞", answer: "注文する・注文",  choices: ["注文する・注文","確認する・確認","返す・返却","送る・送付"], ex: "I need to <em>order</em> new supplies. （新しい備品を注文する必要があります。）" },
+    { word: "price",      pron: "/praɪs/",           pos: "名詞",     answer: "値段・価格",       choices: ["値段・価格","品質","数量","重量"],                        ex: "What is the <em>price</em> of this item? （この商品の値段はいくらですか？）" },
+    { word: "apply",      pron: "/əˈplaɪ/",          pos: "動詞",     answer: "応募する・申し込む", choices: ["応募する・申し込む","断る","延期する","確認する"],       ex: "I want to <em>apply</em> for this job. （この仕事に応募したいです。）" },
+    { word: "staff",      pron: "/stæf/",            pos: "名詞",     answer: "スタッフ・従業員", choices: ["スタッフ・従業員","製品","顧客","部署"],                  ex: "Our <em>staff</em> is very helpful. （私たちのスタッフはとても親切です。）" },
+    { word: "budget",     pron: "/ˈbʌdʒɪt/",         pos: "名詞",     answer: "予算",             choices: ["予算","利益","損失","収益"],                             ex: "We need to cut the <em>budget</em>. （予算を削減する必要があります。）" },
+    { word: "deadline",   pron: "/ˈdɛdlaɪn/",        pos: "名詞",     answer: "締め切り",         choices: ["締め切り","開始日","祝日","有給"],                        ex: "The <em>deadline</em> is tomorrow. （締め切りは明日です。）" },
+    { word: "deliver",    pron: "/dɪˈlɪvər/",        pos: "動詞",     answer: "配達する",         choices: ["配達する","製造する","販売する","修理する"],              ex: "Please <em>deliver</em> this package. （この荷物を配達してください。）" },
+    { word: "department", pron: "/dɪˈpɑːrtmənt/",   pos: "名詞",     answer: "部署・部門",       choices: ["部署・部門","会議室","工場","倉庫"],                      ex: "Which <em>department</em> do you work in? （どの部署で働いていますか？）" },
+    { word: "discount",   pron: "/ˈdɪskaʊnt/",       pos: "名詞",     answer: "割引",             choices: ["割引","追加料金","税金","保証"],                         ex: "We offer a 10% <em>discount</em>. （10%の割引を提供しています。）" },
+    { word: "invoice",    pron: "/ˈɪnvɔɪs/",         pos: "名詞",     answer: "請求書",           choices: ["請求書","領収書","契約書","見積書"],                     ex: "Send me the <em>invoice</em>. （請求書を送ってください。）" },
+    { word: "available",  pron: "/əˈveɪləbl/",       pos: "形容詞",   answer: "利用できる・空いている", choices: ["利用できる・空いている","必要な","重要な","難しい"], ex: "Is the room <em>available</em>? （その部屋は空いていますか？）" },
+    { word: "confirm",    pron: "/kənˈfɜːrm/",       pos: "動詞",     answer: "確認する",         choices: ["確認する","変更する","取り消す","承認する"],              ex: "Please <em>confirm</em> your reservation. （ご予約の確認をお願いします。）" },
+    { word: "improve",    pron: "/ɪmˈpruːv/",        pos: "動詞",     answer: "改善する",         choices: ["改善する","減少する","停止する","繰り返す"],              ex: "We must <em>improve</em> our service. （サービスを改善しなければなりません。）" },
+    { word: "required",   pron: "/rɪˈkwaɪrd/",       pos: "形容詞",   answer: "必要とされる・必須の", choices: ["必要とされる・必須の","任意の","禁止された","推奨の"], ex: "Experience is <em>required</em> for this job. （この仕事には経験が必要です。）" },
+  ],
+  intermediate: [
+    { word: "negotiate",   pron: "/nɪˈɡoʊʃieɪt/",  pos: "動詞",   answer: "交渉する",         choices: ["交渉する","拒否する","承認する","提案する"],       ex: "We will <em>negotiate</em> the contract. （契約を交渉します。）" },
+    { word: "revenue",     pron: "/ˈrɛvənjuː/",     pos: "名詞",   answer: "収益・売上",       choices: ["収益・売上","費用","損失","投資"],                 ex: "Annual <em>revenue</em> increased by 20%. （年間収益が20%増加しました。）" },
+    { word: "proposal",    pron: "/prəˈpoʊzl/",     pos: "名詞",   answer: "提案・企画書",     choices: ["提案・企画書","報告書","契約書","議事録"],         ex: "Submit your <em>proposal</em> by Monday. （月曜日までに提案書を提出してください。）" },
+    { word: "efficient",   pron: "/ɪˈfɪʃnt/",       pos: "形容詞", answer: "効率的な",         choices: ["効率的な","高価な","複雑な","危険な"],             ex: "This is a more <em>efficient</em> method. （これはより効率的な方法です。）" },
+    { word: "inventory",   pron: "/ˈɪnvəntɔːri/",   pos: "名詞",   answer: "在庫",             choices: ["在庫","配送","注文","返品"],                       ex: "Check the <em>inventory</em> levels. （在庫レベルを確認してください。）" },
+    { word: "implement",   pron: "/ˈɪmplɪmɛnt/",    pos: "動詞",   answer: "実施する・導入する", choices: ["実施する・導入する","削除する","中断する","評価する"], ex: "We will <em>implement</em> the new system. （新しいシステムを導入します。）" },
+    { word: "strategy",    pron: "/ˈstræt̬ədʒi/",   pos: "名詞",   answer: "戦略",             choices: ["戦略","方針","目標","予算"],                       ex: "What is your marketing <em>strategy</em>? （マーケティング戦略は何ですか？）" },
+    { word: "acquire",     pron: "/əˈkwaɪər/",      pos: "動詞",   answer: "取得する・習得する", choices: ["取得する・習得する","失う","提供する","変更する"],  ex: "We plan to <em>acquire</em> new skills. （新しいスキルを習得する予定です。）" },
+    { word: "quarterly",   pron: "/ˈkwɔːrtərli/",   pos: "形容詞", answer: "四半期ごとの",     choices: ["四半期ごとの","毎月の","毎年の","毎週の"],          ex: "The <em>quarterly</em> report is ready. （四半期報告書が準備できました。）" },
+    { word: "shareholder", pron: "/ˈʃɛrhəʊldər/",   pos: "名詞",   answer: "株主",             choices: ["株主","取締役","顧客","社員"],                     ex: "The <em>shareholder</em> meeting is next week. （株主総会は来週です。）" },
+    { word: "compete",     pron: "/kəmˈpiːt/",      pos: "動詞",   answer: "競争する",         choices: ["競争する","協力する","合併する","撤退する"],       ex: "We <em>compete</em> in a global market. （私たちはグローバル市場で競争しています。）" },
+    { word: "promotion",   pron: "/prəˈmoʊʃn/",     pos: "名詞",   answer: "昇進・販促",       choices: ["昇進・販促","解雇・廃止","採用・新商品","休暇・閉店"], ex: "She got a <em>promotion</em> last month. （彼女は先月昇進しました。）" },
+    { word: "conduct",     pron: "/kənˈdʌkt/",      pos: "動詞",   answer: "実施する・行う",   choices: ["実施する・行う","妨げる","拒絶する","修正する"],   ex: "We will <em>conduct</em> a survey. （アンケートを実施します。）" },
+    { word: "merchant",    pron: "/ˈmɜːrtʃənt/",    pos: "名詞",   answer: "商人・販売業者",   choices: ["商人・販売業者","銀行員","顧問","会計士"],         ex: "The <em>merchant</em> sells organic food. （その商人はオーガニック食品を販売しています。）" },
+    { word: "substantial", pron: "/səbˈstænʃl/",    pos: "形容詞", answer: "かなりの・相当な", choices: ["かなりの・相当な","わずかな","普通の","不明確な"],  ex: "There was a <em>substantial</em> increase. （かなりの増加がありました。）" },
+  ],
+  advanced: [
+    { word: "amalgamate",  pron: "/əˈmælɡəmeɪt/",   pos: "動詞",   answer: "合併する・統合する",  choices: ["合併する・統合する","分割する","廃止する","拡大する"],  ex: "The two firms will <em>amalgamate</em>. （2社は合併します。）" },
+    { word: "remunerate",  pron: "/rɪˈmjuːnəreɪt/", pos: "動詞",   answer: "報酬を払う",         choices: ["報酬を払う","解雇する","訓練する","昇進させる"],       ex: "Employees are well <em>remunerated</em>. （従業員は十分な報酬を受けています。）" },
+    { word: "proliferate", pron: "/prəˈlɪfəreɪt/",  pos: "動詞",   answer: "急増する・普及する", choices: ["急増する・普及する","減少する","停滞する","縮小する"],   ex: "Online stores continue to <em>proliferate</em>. （オンラインショップは急増し続けています。）" },
+    { word: "procurement", pron: "/prəˈkjʊərmənt/", pos: "名詞",   answer: "調達・購買",         choices: ["調達・購買","製造","配送","販売"],                     ex: "The <em>procurement</em> process was streamlined. （調達プロセスが合理化されました。）" },
+    { word: "reconcile",   pron: "/ˈrɛkənsaɪl/",    pos: "動詞",   answer: "照合する・和解させる", choices: ["照合する・和解させる","発行する","承認する","監査する"], ex: "Please <em>reconcile</em> the accounts. （口座を照合してください。）" },
+    { word: "stipulate",   pron: "/ˈstɪpjʊleɪt/",   pos: "動詞",   answer: "規定する・明記する", choices: ["規定する・明記する","交渉する","廃棄する","修正する"],   ex: "The contract <em>stipulates</em> delivery by June. （契約は6月までの配送を規定しています。）" },
+    { word: "lucrative",   pron: "/ˈluːkrətɪv/",    pos: "形容詞", answer: "収益性の高い",       choices: ["収益性の高い","損失の大きい","リスクの高い","競争の激しい"], ex: "This is a <em>lucrative</em> business opportunity. （これは収益性の高いビジネスチャンスです。）" },
+    { word: "leverage",    pron: "/ˈlɛvərɪdʒ/",     pos: "動詞",   answer: "活用する・梃入れする", choices: ["活用する・梃入れする","無視する","減少させる","廃棄する"], ex: "We should <em>leverage</em> our strengths. （私たちの強みを活用すべきです。）" },
+    { word: "mitigate",    pron: "/ˈmɪtɪɡeɪt/",     pos: "動詞",   answer: "軽減する・緩和する", choices: ["軽減する・緩和する","増大させる","確定させる","複雑にする"], ex: "We must <em>mitigate</em> the risks. （リスクを軽減しなければなりません。）" },
+    { word: "supersede",   pron: "/ˌsuːpərˈsiːd/",  pos: "動詞",   answer: "取って代わる・廃止する", choices: ["取って代わる・廃止する","補完する","支持する","維持する"], ex: "This policy will <em>supersede</em> the old one. （この方針は古い方針に取って代わります。）" },
+  ]
+};
+
+// ===== WRONG WORDS STORAGE (localStorage) =====
+// Key: "toeic_wrong" → JSON array of word objects (with added .level field)
+const STORAGE_KEY = 'toeic_wrong';
+
+function loadWrongWords() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveWrongWords(list) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+}
+
+function addWrongWord(wordObj, level) {
+  const list = loadWrongWords();
+  const id = level + ':' + wordObj.word;
+  if (!list.find(w => w._id === id)) {
+    list.push({ ...wordObj, _id: id, _level: level });
+    saveWrongWords(list);
+  }
+}
+
+function removeWrongWord(wordObj, level) {
+  const id = level + ':' + wordObj.word;
+  const list = loadWrongWords().filter(w => w._id !== id);
+  saveWrongWords(list);
+}
+
+function getWrongCount() { return loadWrongWords().length; }
+
+// ===== STATE =====
+let state = {
+  mode: 'challenge',   // 'challenge' | 'review'
+  level: 'beginner',
+  questions: [],
+  current: 0,
+  correct: 0,
+  streak: 0,
+  maxStreak: 0,
+  answered: false,
+};
+
+// ===== UTILITIES =====
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setHeaderMode(mode) {
+  const header = document.getElementById('app-header');
+  const sub    = document.getElementById('header-sub');
+  if (mode === 'review') {
+    header.classList.add('review-mode');
+    sub.textContent = '苦手単語を集中復習！';
+  } else {
+    header.classList.remove('review-mode');
+    sub.textContent = '4択で力試し！初心者向け';
+  }
+}
+
+// ===== REFRESH START SCREEN =====
+function refreshStart() {
+  const count = getWrongCount();
+  const badge = document.getElementById('review-badge');
+  badge.textContent = count + '語';
+  const reviewBtn = document.getElementById('btn-review');
+  if (count === 0) {
+    reviewBtn.setAttribute('disabled', 'true');
+  } else {
+    reviewBtn.removeAttribute('disabled');
+  }
+}
+
+// ===== LEVEL BUTTONS =====
+document.querySelectorAll('.level-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.level-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    state.level = btn.dataset.level;
+  });
+});
+
+// ===== MODE START BUTTONS =====
+document.getElementById('btn-challenge').addEventListener('click', () => {
+  state.mode = 'challenge';
+  startQuiz();
+});
+
+document.getElementById('btn-review').addEventListener('click', () => {
+  state.mode = 'review';
+  startQuiz();
+});
+
+// ===== START QUIZ =====
+function startQuiz() {
+  state.current = 0;
+  state.correct = 0;
+  state.streak  = 0;
+  state.maxStreak = 0;
+  state.answered = false;
+
+  if (state.mode === 'challenge') {
+    const pool = WORDS[state.level];
+    state.questions = shuffle(pool).slice(0, 10);
+  } else {
+    // review mode: use wrong words list
+    const wrong = loadWrongWords();
+    state.questions = shuffle(wrong);
+  }
+
+  setHeaderMode(state.mode);
+  applyModeStyles();
+  show('screen-quiz');
+  renderQuestion();
+}
+
+function applyModeStyles() {
+  const isReview = state.mode === 'review';
+
+  // mode banner
+  const banner = document.getElementById('mode-banner');
+  const bannerIcon = document.getElementById('mode-banner-icon');
+  const bannerText = document.getElementById('mode-banner-text');
+  banner.className = 'mode-banner ' + state.mode;
+  bannerIcon.textContent = isReview ? '📝' : '🎯';
+  bannerText.textContent = isReview
+    ? `復習モード — 苦手単語 ${state.questions.length} 語`
+    : `挑戦モード — ${state.level === 'beginner' ? '初級' : state.level === 'intermediate' ? '中級' : '上級'} 10問`;
+
+  // progress bar color
+  const pb = document.getElementById('progress-bar');
+  if (isReview) pb.classList.add('review-bar');
+  else          pb.classList.remove('review-bar');
+
+  // stat-val color
+  document.querySelectorAll('.stat-val').forEach(el => {
+    if (isReview) el.classList.add('review-color');
+    else          el.classList.remove('review-color');
+  });
+
+  // next button color
+  const nextBtn = document.getElementById('btn-next');
+  if (isReview) nextBtn.classList.add('review');
+  else          nextBtn.classList.remove('review');
+}
+
+// ===== RENDER QUESTION =====
+function renderQuestion() {
+  const q     = state.questions[state.current];
+  const idx   = state.current;
+  const total = state.questions.length;
+  const isReview = state.mode === 'review';
+
+  document.getElementById('stat-q').textContent       = idx + 1;
+  document.getElementById('stat-correct').textContent = state.correct;
+  document.getElementById('stat-streak').textContent  = state.streak;
+  document.getElementById('stat-total').textContent   = total;
+
+  document.getElementById('progress-bar').style.width = (idx / total * 100) + '%';
+
+  document.getElementById('question-num').textContent = `問題 ${idx + 1} / ${total}`;
+  document.getElementById('word').textContent         = q.word;
+  document.getElementById('pronunciation').textContent = q.pron;
+  document.getElementById('pos').textContent          = q.pos;
+
+  const posEl = document.getElementById('pos');
+  if (isReview) posEl.classList.add('review-pos');
+  else          posEl.classList.remove('review-pos');
+
+  const card = document.getElementById('question-card');
+  card.classList.remove('card-enter');
+  void card.offsetWidth;
+  card.classList.add('card-enter');
+
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+  const letters  = ['A', 'B', 'C', 'D'];
+  const shuffled = shuffle(q.choices);
+
+  shuffled.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="choice-letter">${letters[i]}</span><span>${choice}</span>`;
+    btn.addEventListener('click', () => selectAnswer(choice, q));
+    choicesEl.appendChild(btn);
+  });
+
+  document.getElementById('feedback').classList.remove('show');
+  document.getElementById('btn-next').classList.remove('show');
+  document.getElementById('fb-removed').style.display = 'none';
+
+  state.answered = false;
+}
+
+// ===== SELECT ANSWER =====
+function selectAnswer(choice, q) {
+  if (state.answered) return;
+  state.answered = true;
+
+  const isCorrect = (choice === q.answer);
+  const isReview  = state.mode === 'review';
+  const level     = q._level || state.level;
+
+  document.querySelectorAll('.choice-btn').forEach(btn => {
+    btn.disabled = true;
+    const text = btn.querySelector('span:last-child').textContent;
+    if (text === q.answer)              btn.classList.add('correct');
+    else if (text === choice && !isCorrect) btn.classList.add('wrong');
+  });
+
+  if (isCorrect) {
+    state.correct++;
+    state.streak++;
+    if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+
+    // In review mode: remove from wrong list
+    if (isReview) {
+      removeWrongWord(q, level);
+      document.getElementById('fb-removed').style.display = 'inline-flex';
+    }
+
+    const card = document.getElementById('question-card');
+    card.classList.add('animate-pop');
+    setTimeout(() => card.classList.remove('animate-pop'), 300);
+  } else {
+    state.streak = 0;
+
+    // In challenge mode: add to wrong list
+    if (!isReview) {
+      addWrongWord(q, level);
+    }
+
+    const card = document.getElementById('question-card');
+    card.classList.add('animate-shake');
+    setTimeout(() => card.classList.remove('animate-shake'), 400);
+  }
+
+  document.getElementById('stat-streak').textContent = state.streak;
+
+  const fb = document.getElementById('feedback');
+  document.getElementById('fb-icon').textContent = isCorrect ? '✅' : '❌';
+  const fbTitle = document.getElementById('fb-title');
+  fbTitle.textContent = isCorrect ? '正解！' : '不正解…';
+  fbTitle.className   = 'feedback-title ' + (isCorrect ? 'correct' : 'wrong');
+  document.getElementById('fb-answer').innerHTML  = `正解：<strong>${q.answer}</strong>`;
+  document.getElementById('fb-example').innerHTML = `例文：${q.ex}`;
+  fb.classList.add('show');
+
+  document.getElementById('btn-next').classList.add('show');
+}
+
+// ===== NEXT QUESTION =====
+document.getElementById('btn-next').addEventListener('click', () => {
+  state.current++;
+  if (state.current >= state.questions.length) showResult();
+  else renderQuestion();
+});
+
+// ===== RESULT =====
+function showResult() {
+  const total    = state.questions.length;
+  const correct  = state.correct;
+  const rate     = Math.round(correct / total * 100);
+  const isReview = state.mode === 'review';
+
+  document.getElementById('result-correct').textContent = correct;
+  document.getElementById('result-total').textContent   = total;
+  document.getElementById('res-correct').textContent    = correct;
+  document.getElementById('res-wrong').textContent      = total - correct;
+  document.getElementById('res-rate').textContent       = rate + '%';
+  document.getElementById('res-streak').textContent     = state.maxStreak;
+
+  const scoreEl = document.getElementById('result-score');
+  if (isReview) scoreEl.classList.add('review-score');
+  else          scoreEl.classList.remove('review-score');
+
+  // --- challenge mode result messages ---
+  let emoji, title, comment;
+  if (isReview) {
+    const remaining = getWrongCount();
+    if (remaining === 0) {
+      emoji = '🎊'; title = '苦手単語を全クリア！';
+      comment = '素晴らしい！苦手リストが空になりました。\n挑戦モードで新しい問題に挑戦しよう！';
+    } else if (rate === 100) {
+      emoji = '🌟'; title = '全問正解！';
+      comment = `今回は全問正解！まだ苦手単語が ${remaining} 語残っています。`;
+    } else if (rate >= 60) {
+      emoji = '💪'; title = 'よく頑張りました！';
+      comment = `正答率 ${rate}%。苦手単語がまだ ${remaining} 語残っています。\n繰り返し復習しましょう！`;
+    } else {
+      emoji = '📖'; title = 'もう一息！';
+      comment = `正答率 ${rate}%。焦らず繰り返し練習しましょう！\n苦手単語が ${remaining} 語残っています。`;
+    }
+
+    // show/hide cleared or remaining info
+    const remaining2 = getWrongCount();
+    if (remaining2 === 0) {
+      document.getElementById('cleared-info').classList.add('show');
+      document.getElementById('remaining-info').classList.remove('show');
+    } else {
+      document.getElementById('cleared-info').classList.remove('show');
+      document.getElementById('remaining-info').classList.add('show');
+      document.getElementById('remaining-count').textContent = remaining2;
+    }
+    document.getElementById('btn-go-review').classList.remove('show');
+
+    // retry button text
+    document.getElementById('btn-retry').textContent = 'もう一度復習する';
+    document.getElementById('btn-back').className    = 'btn-outline review-outline';
+    document.getElementById('btn-back').textContent  = '← モード選択に戻る';
+
+  } else {
+    // challenge mode
+    document.getElementById('cleared-info').classList.remove('show');
+    document.getElementById('remaining-info').classList.remove('show');
+
+    if (rate === 100) {
+      emoji = '🏆'; title = '完璧！'; comment = '素晴らしい！全問正解です！\nこの調子で次のレベルに挑戦してみよう！';
+    } else if (rate >= 80) {
+      emoji = '🎉'; title = 'よくできました！'; comment = `正答率${rate}%！あと少しで満点です。\n間違えた問題を復習しましょう！`;
+    } else if (rate >= 60) {
+      emoji = '😊'; title = 'まあまあです！'; comment = `正答率${rate}%。もう一度挑戦して\nスコアアップを目指しましょう！`;
+    } else if (rate >= 40) {
+      emoji = '💪'; title = 'もう少し！'; comment = `正答率${rate}%。繰り返し練習して\n単語を覚えていきましょう！`;
+    } else {
+      emoji = '📖'; title = 'がんばれ！'; comment = `正答率${rate}%。焦らず一つずつ\n単語を覚えていきましょう！`;
+    }
+
+    // show "go review" button if there are wrong words
+    const wrongCount = getWrongCount();
+    const goReviewBtn = document.getElementById('btn-go-review');
+    if (wrongCount > 0) {
+      goReviewBtn.classList.add('show');
+      document.getElementById('go-review-count').textContent = wrongCount;
+    } else {
+      goReviewBtn.classList.remove('show');
+    }
+
+    document.getElementById('btn-retry').textContent = 'もう一度チャレンジ';
+    document.getElementById('btn-back').className    = 'btn-outline';
+    document.getElementById('btn-back').textContent  = '← モード選択に戻る';
+  }
+
+  document.getElementById('result-emoji').textContent   = emoji;
+  document.getElementById('result-title').textContent   = title;
+  document.getElementById('result-comment').textContent = comment;
+
+  show('screen-result');
+  refreshStart();
+}
+
+// ===== RESULT BUTTONS =====
+document.getElementById('btn-retry').addEventListener('click', startQuiz);
+
+document.getElementById('btn-go-review').addEventListener('click', () => {
+  state.mode = 'review';
+  startQuiz();
+});
+
+document.getElementById('btn-back').addEventListener('click', () => {
+  setHeaderMode('challenge');
+  refreshStart();
+  show('screen-start');
+});
+
+// ===== INIT =====
+refreshStart();
+</script>
+
+</body>
+</html>

@@ -361,6 +361,41 @@
     .animate-shake { animation: shake 0.4s ease; }
     .animate-pop   { animation: pop 0.25s ease; }
     .card-enter    { animation: fadeSlideUp 0.35s ease; }
+
+    /* ===== VOCAB ===== */
+    .mode-card.vocab {
+      background: linear-gradient(135deg,#E8FDF5 0%,#D1FAE5 100%);
+      border-color: #A7F3D0;
+    }
+    .mode-card.vocab .mode-title { color: #059669; }
+
+    .vocab-tab {
+      padding: 7px 16px; border-radius: 20px; border: 2px solid var(--border);
+      background: white; font-size: 13px; font-weight: 600; cursor: pointer;
+      color: var(--subtext); transition: all 0.2s;
+    }
+    .vocab-tab.selected { border-color: #059669; background: #059669; color: white; }
+
+    .vocab-filter {
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: white; font-size: 12px; font-weight: 600; cursor: pointer;
+      color: var(--subtext); transition: all 0.2s;
+    }
+    .vocab-filter.selected { border-color: var(--primary); background: var(--primary); color: white; }
+
+    .vocab-item {
+      background: var(--card); border-radius: 12px; padding: 12px 16px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      border-left: 4px solid transparent; display: flex; align-items: center; gap: 12px;
+    }
+    .vocab-item.is-wrong { border-left-color: var(--wrong); background: #FFF5F5; }
+    .vocab-item-word { font-size: 18px; font-weight: 800; color: var(--text); min-width: 90px; }
+    .vocab-item-meta { font-size: 11px; color: var(--subtext); margin-top: 2px; }
+    .vocab-item-answer { font-size: 14px; font-weight: 600; color: var(--text); margin-left: auto; text-align: right; }
+    .vocab-wrong-badge {
+      font-size: 10px; font-weight: 700; background: var(--wrong); color: white;
+      padding: 2px 6px; border-radius: 10px; white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -395,6 +430,16 @@
           <div class="mode-info">
             <div class="mode-title">挑戦モード</div>
             <div class="mode-desc">レベルから10問出題。<br>間違えた単語は自動で苦手リストに追加！</div>
+          </div>
+          <span class="mode-arrow">›</span>
+        </button>
+
+        <!-- 単語帳 -->
+        <button class="mode-card vocab" id="btn-vocab">
+          <span class="mode-icon">📖</span>
+          <div class="mode-info">
+            <div class="mode-title">単語帳</div>
+            <div class="mode-desc">レベル別に全単語を確認。<br>苦手単語は赤でハイライト！</div>
           </div>
           <span class="mode-arrow">›</span>
         </button>
@@ -518,10 +563,31 @@
     </div>
   </div>
 
+  <!-- ===== VOCAB SCREEN ===== -->
+  <div id="screen-vocab" class="screen">
+    <div style="background:var(--card);border-radius:14px;padding:12px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <strong style="font-size:16px;">📖 単語帳</strong>
+        <button id="vocab-back" style="background:none;border:none;color:var(--primary);font-size:14px;font-weight:700;cursor:pointer;">← 戻る</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <button class="vocab-tab selected" data-level="beginner">初級</button>
+        <button class="vocab-tab" data-level="intermediate">中級</button>
+        <button class="vocab-tab" data-level="advanced">上級</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span id="vocab-stats" style="font-size:12px;color:var(--subtext);flex:1;"></span>
+        <button class="vocab-filter selected" data-filter="all">全て</button>
+        <button class="vocab-filter" data-filter="wrong">苦手のみ</button>
+      </div>
+    </div>
+    <div id="vocab-list"></div>
+  </div>
+
 </main>
 
 <script>
-// ===== VOCABULARY DATABASE =====
+// ===== VOCABULARY DATABASE (1000語) =====
 const WORDS = {
   beginner: [
     { word: "meeting",    pron: "/ˈmiːtɪŋ/",        pos: "名詞",     answer: "会議",             choices: ["会議","書類","電話","休憩"],                             ex: "We have a <em>meeting</em> at 3 PM. （午後3時に会議があります。）" },
@@ -544,6 +610,507 @@ const WORDS = {
     { word: "confirm",    pron: "/kənˈfɜːrm/",       pos: "動詞",     answer: "確認する",         choices: ["確認する","変更する","取り消す","承認する"],              ex: "Please <em>confirm</em> your reservation. （ご予約の確認をお願いします。）" },
     { word: "improve",    pron: "/ɪmˈpruːv/",        pos: "動詞",     answer: "改善する",         choices: ["改善する","減少する","停止する","繰り返す"],              ex: "We must <em>improve</em> our service. （サービスを改善しなければなりません。）" },
     { word: "required",   pron: "/rɪˈkwaɪrd/",       pos: "形容詞",   answer: "必要とされる・必須の", choices: ["必要とされる・必須の","任意の","禁止された","推奨の"], ex: "Experience is <em>required</em> for this job. （この仕事には経験が必要です。）" },
+    {word:"ability",pron:"/əˈbɪlɪti/",pos:"名詞",answer:"能力",ex:"She has the <em>ability</em> to lead.（彼女にはリーダーシップの能力がある。）"},
+    {word:"accept",pron:"/əkˈsɛpt/",pos:"動詞",answer:"受け入れる",ex:"Please <em>accept</em> our offer.（私たちの提案を受け入れてください。）"},
+    {word:"account",pron:"/əˈkaʊnt/",pos:"名詞",answer:"口座・勘定",ex:"Open a bank <em>account</em>.（銀行口座を開設してください。）"},
+    {word:"achieve",pron:"/əˈtʃiːv/",pos:"動詞",answer:"達成する",ex:"We <em>achieved</em> our goal.（私たちは目標を達成しました。）"},
+    {word:"address",pron:"/əˈdrɛs/",pos:"名詞",answer:"住所",ex:"Write your <em>address</em> here.（ここに住所を書いてください。）"},
+    {word:"advantage",pron:"/ədˈvæntɪdʒ/",pos:"名詞",answer:"利点",ex:"This plan has many <em>advantages</em>.（この計画には多くの利点があります。）"},
+    {word:"agree",pron:"/əˈɡriː/",pos:"動詞",answer:"同意する",ex:"I <em>agree</em> with your plan.（あなたの計画に同意します。）"},
+    {word:"announce",pron:"/əˈnaʊns/",pos:"動詞",answer:"発表する",ex:"They will <em>announce</em> the results.（彼らは結果を発表します。）"},
+    {word:"answer",pron:"/ˈænsər/",pos:"動詞/名詞",answer:"答える・答え",ex:"Please <em>answer</em> my question.（私の質問に答えてください。）"},
+    {word:"appointment",pron:"/əˈpɔɪntmənt/",pos:"名詞",answer:"予約・約束",ex:"I have an <em>appointment</em> at 2 PM.（午後2時に予約があります。）"},
+    {word:"approve",pron:"/əˈpruːv/",pos:"動詞",answer:"承認する",ex:"The manager <em>approved</em> the plan.（マネージャーが計画を承認しました。）"},
+    {word:"arrange",pron:"/əˈreɪndʒ/",pos:"動詞",answer:"手配する",ex:"Please <em>arrange</em> a meeting.（会議を手配してください。）"},
+    {word:"arrive",pron:"/əˈraɪv/",pos:"動詞",answer:"到着する",ex:"The package will <em>arrive</em> tomorrow.（荷物は明日到着します。）"},
+    {word:"assist",pron:"/əˈsɪst/",pos:"動詞",answer:"手伝う・支援する",ex:"Can you <em>assist</em> me?（手伝ってもらえますか？）"},
+    {word:"attach",pron:"/əˈtætʃ/",pos:"動詞",answer:"添付する",ex:"Please <em>attach</em> the file.（ファイルを添付してください。）"},
+    {word:"attend",pron:"/əˈtɛnd/",pos:"動詞",answer:"出席する",ex:"All staff must <em>attend</em> the meeting.（全スタッフが会議に出席しなければなりません。）"},
+    {word:"benefit",pron:"/ˈbɛnɪfɪt/",pos:"名詞",answer:"利益・恩恵",ex:"This job has great <em>benefits</em>.（この仕事は素晴らしい福利厚生があります。）"},
+    {word:"bill",pron:"/bɪl/",pos:"名詞",answer:"請求書・勘定",ex:"Pay the <em>bill</em> online.（オンラインで請求書を支払う。）"},
+    {word:"branch",pron:"/bræntʃ/",pos:"名詞",answer:"支社・支店",ex:"Our company has a <em>branch</em> in Tokyo.（当社は東京に支社があります。）"},
+    {word:"cancel",pron:"/ˈkænsəl/",pos:"動詞",answer:"キャンセルする",ex:"We had to <em>cancel</em> the event.（イベントをキャンセルしなければなりませんでした。）"},
+    {word:"career",pron:"/kəˈrɪər/",pos:"名詞",answer:"キャリア・職業",ex:"She built a great <em>career</em>.（彼女は素晴らしいキャリアを築きました。）"},
+    {word:"charge",pron:"/tʃɑːrdʒ/",pos:"動詞/名詞",answer:"請求する・料金",ex:"How much do you <em>charge</em>?（料金はいくらですか？）"},
+    {word:"check",pron:"/tʃɛk/",pos:"動詞",answer:"確認する・チェックする",ex:"Please <em>check</em> the document.（書類を確認してください。）"},
+    {word:"choice",pron:"/tʃɔɪs/",pos:"名詞",answer:"選択",ex:"Make the right <em>choice</em>.（正しい選択をしてください。）"},
+    {word:"claim",pron:"/kleɪm/",pos:"動詞/名詞",answer:"主張する・請求する",ex:"She <em>claimed</em> a refund.（彼女は返金を請求しました。）"},
+    {word:"client",pron:"/ˈklaɪənt/",pos:"名詞",answer:"顧客・依頼人",ex:"Our <em>client</em> is satisfied.（お客様は満足しています。）"},
+    {word:"collect",pron:"/kəˈlɛkt/",pos:"動詞",answer:"集める・回収する",ex:"Please <em>collect</em> the forms.（用紙を回収してください。）"},
+    {word:"comment",pron:"/ˈkɒmɛnt/",pos:"名詞",answer:"コメント・意見",ex:"Please share your <em>comments</em>.（ご意見を共有してください。）"},
+    {word:"company",pron:"/ˈkʌmpəni/",pos:"名詞",answer:"会社",ex:"She works for a large <em>company</em>.（彼女は大きな会社に勤めています。）"},
+    {word:"complete",pron:"/kəmˈpliːt/",pos:"動詞",answer:"完了する",ex:"Please <em>complete</em> this form.（このフォームに記入してください。）"},
+    {word:"concern",pron:"/kənˈsɜːrn/",pos:"名詞",answer:"懸念・心配",ex:"I have a <em>concern</em> about the plan.（計画について懸念があります。）"},
+    {word:"contact",pron:"/ˈkɒntækt/",pos:"動詞/名詞",answer:"連絡する・連絡先",ex:"Please <em>contact</em> us anytime.（いつでもご連絡ください。）"},
+    {word:"continue",pron:"/kənˈtɪnjuː/",pos:"動詞",answer:"続ける",ex:"Please <em>continue</em> the project.（プロジェクトを続けてください。）"},
+    {word:"contract",pron:"/ˈkɒntrækt/",pos:"名詞",answer:"契約",ex:"Sign the <em>contract</em> today.（今日契約書にサインしてください。）"},
+    {word:"copy",pron:"/ˈkɒpi/",pos:"動詞/名詞",answer:"コピーする・写し",ex:"Please <em>copy</em> this document.（この書類をコピーしてください。）"},
+    {word:"cost",pron:"/kɒst/",pos:"名詞",answer:"費用・コスト",ex:"The <em>cost</em> is too high.（費用が高すぎます。）"},
+    {word:"create",pron:"/kriˈeɪt/",pos:"動詞",answer:"作成する",ex:"<em>Create</em> a new file.（新しいファイルを作成してください。）"},
+    {word:"data",pron:"/ˈdeɪtə/",pos:"名詞",answer:"データ",ex:"Analyze the <em>data</em>.（データを分析してください。）"},
+    {word:"decide",pron:"/dɪˈsaɪd/",pos:"動詞",answer:"決める",ex:"We need to <em>decide</em> quickly.（早く決めなければなりません。）"},
+    {word:"decrease",pron:"/dɪˈkriːs/",pos:"動詞",answer:"減少する",ex:"Sales <em>decreased</em> last month.（先月、売上が減少しました。）"},
+    {word:"delay",pron:"/dɪˈleɪ/",pos:"動詞/名詞",answer:"遅らせる・遅延",ex:"The flight was <em>delayed</em>.（フライトが遅延しました。）"},
+    {word:"demand",pron:"/dɪˈmænd/",pos:"名詞",answer:"需要・要求",ex:"There is high <em>demand</em> for this product.（この製品は需要が高い。）"},
+    {word:"design",pron:"/dɪˈzaɪn/",pos:"動詞/名詞",answer:"設計する・デザイン",ex:"She <em>designed</em> the new logo.（彼女が新しいロゴをデザインしました。）"},
+    {word:"develop",pron:"/dɪˈvɛləp/",pos:"動詞",answer:"開発する",ex:"We are <em>developing</em> a new app.（新しいアプリを開発しています。）"},
+    {word:"discuss",pron:"/dɪˈskʌs/",pos:"動詞",answer:"話し合う",ex:"Let's <em>discuss</em> the plan.（計画について話し合いましょう。）"},
+    {word:"document",pron:"/ˈdɒkjumənt/",pos:"名詞",answer:"書類・文書",ex:"Sign the <em>document</em>.（書類にサインしてください。）"},
+    {word:"duty",pron:"/ˈdjuːti/",pos:"名詞",answer:"義務・職務",ex:"It is my <em>duty</em> to report this.（これを報告するのは私の義務です。）"},
+    {word:"earn",pron:"/ɜːrn/",pos:"動詞",answer:"稼ぐ",ex:"He <em>earns</em> a good salary.（彼は良い給料を稼いでいます。）"},
+    {word:"email",pron:"/ˈiːmeɪl/",pos:"動詞/名詞",answer:"メール",ex:"Send me an <em>email</em>.（メールを送ってください。）"},
+    {word:"employee",pron:"/ɪmˈplɔɪiː/",pos:"名詞",answer:"従業員",ex:"Our <em>employees</em> are dedicated.（私たちの従業員は熱心です。）"},
+    {word:"employer",pron:"/ɪmˈplɔɪər/",pos:"名詞",answer:"雇用主",ex:"The <em>employer</em> offers good benefits.（雇用主は良い福利厚生を提供しています。）"},
+    {word:"enter",pron:"/ˈɛntər/",pos:"動詞",answer:"入力する・入る",ex:"<em>Enter</em> your password.（パスワードを入力してください。）"},
+    {word:"equipment",pron:"/ɪˈkwɪpmənt/",pos:"名詞",answer:"設備・機器",ex:"Use the right <em>equipment</em>.（適切な機器を使用してください。）"},
+    {word:"error",pron:"/ˈɛrər/",pos:"名詞",answer:"エラー・誤り",ex:"There is an <em>error</em> in the report.（報告書にエラーがあります。）"},
+    {word:"event",pron:"/ɪˈvɛnt/",pos:"名詞",answer:"イベント・行事",ex:"Join the company <em>event</em>.（会社のイベントに参加してください。）"},
+    {word:"expect",pron:"/ɪkˈspɛkt/",pos:"動詞",answer:"期待する・予想する",ex:"We <em>expect</em> good results.（良い結果を期待しています。）"},
+    {word:"experience",pron:"/ɪkˈspɪəriəns/",pos:"名詞",answer:"経験",ex:"She has five years of <em>experience</em>.（彼女は5年の経験があります。）"},
+    {word:"explain",pron:"/ɪkˈspleɪn/",pos:"動詞",answer:"説明する",ex:"Please <em>explain</em> the process.（プロセスを説明してください。）"},
+    {word:"extend",pron:"/ɪkˈstɛnd/",pos:"動詞",answer:"延長する・延ばす",ex:"Can we <em>extend</em> the deadline?（締め切りを延長できますか？）"},
+    {word:"facility",pron:"/fəˈsɪlɪti/",pos:"名詞",answer:"施設",ex:"The <em>facility</em> is open 24 hours.（施設は24時間オープンしています。）"},
+    {word:"feedback",pron:"/ˈfiːdbæk/",pos:"名詞",answer:"フィードバック",ex:"Give us your <em>feedback</em>.（フィードバックをお聞かせください。）"},
+    {word:"file",pron:"/faɪl/",pos:"名詞",answer:"ファイル",ex:"Save the <em>file</em>.（ファイルを保存してください。）"},
+    {word:"fill",pron:"/fɪl/",pos:"動詞",answer:"記入する・満たす",ex:"Please <em>fill</em> out the form.（フォームに記入してください。）"},
+    {word:"follow",pron:"/ˈfɒloʊ/",pos:"動詞",answer:"従う・フォローする",ex:"<em>Follow</em> the instructions.（指示に従ってください。）"},
+    {word:"forward",pron:"/ˈfɔːrwərd/",pos:"動詞",answer:"転送する",ex:"Please <em>forward</em> this email.（このメールを転送してください。）"},
+    {word:"free",pron:"/friː/",pos:"形容詞",answer:"無料の・暇な",ex:"The sample is <em>free</em>.（サンプルは無料です。）"},
+    {word:"general",pron:"/ˈdʒɛnərəl/",pos:"形容詞",answer:"一般的な",ex:"This is a <em>general</em> guideline.（これは一般的なガイドラインです。）"},
+    {word:"goal",pron:"/ɡoʊl/",pos:"名詞",answer:"目標",ex:"Set a clear <em>goal</em>.（明確な目標を設定してください。）"},
+    {word:"growth",pron:"/ɡroʊθ/",pos:"名詞",answer:"成長",ex:"The company shows strong <em>growth</em>.（会社は強い成長を示しています。）"},
+    {word:"guide",pron:"/ɡaɪd/",pos:"動詞/名詞",answer:"案内する・ガイド",ex:"Please <em>guide</em> the new employee.（新入社員を案内してください。）"},
+    {word:"handle",pron:"/ˈhændl/",pos:"動詞",answer:"処理する・扱う",ex:"Can you <em>handle</em> this task?（このタスクを処理できますか？）"},
+    {word:"head",pron:"/hɛd/",pos:"名詞",answer:"部長・長",ex:"She is the <em>head</em> of the team.（彼女はチームの長です。）"},
+    {word:"hire",pron:"/haɪər/",pos:"動詞",answer:"雇う",ex:"We plan to <em>hire</em> new staff.（新しいスタッフを雇う予定です。）"},
+    {word:"hold",pron:"/hoʊld/",pos:"動詞",answer:"開催する・保留する",ex:"We will <em>hold</em> a conference.（会議を開催します。）"},
+    {word:"hotel",pron:"/hoʊˈtɛl/",pos:"名詞",answer:"ホテル",ex:"Book a room at the <em>hotel</em>.（ホテルの部屋を予約してください。）"},
+    {word:"human",pron:"/ˈhjuːmən/",pos:"形容詞",answer:"人的な・人間の",ex:"<em>Human</em> resources is important.（人事は重要です。）"},
+    {word:"include",pron:"/ɪnˈkluːd/",pos:"動詞",answer:"含む",ex:"Please <em>include</em> your name.（名前を含めてください。）"},
+    {word:"increase",pron:"/ɪnˈkriːs/",pos:"動詞",answer:"増加する",ex:"Sales <em>increased</em> this year.（今年売上が増加しました。）"},
+    {word:"inform",pron:"/ɪnˈfɔːrm/",pos:"動詞",answer:"知らせる",ex:"Please <em>inform</em> us of any changes.（変更があればお知らせください。）"},
+    {word:"interview",pron:"/ˈɪntərvjuː/",pos:"名詞",answer:"面接",ex:"The <em>interview</em> is tomorrow.（面接は明日です。）"},
+    {word:"issue",pron:"/ˈɪʃuː/",pos:"名詞",answer:"問題・発行",ex:"There is an <em>issue</em> with the system.（システムに問題があります。）"},
+    {word:"join",pron:"/dʒɔɪn/",pos:"動詞",answer:"参加する",ex:"Please <em>join</em> our team.（私たちのチームに参加してください。）"},
+    {word:"keep",pron:"/kiːp/",pos:"動詞",answer:"保つ・維持する",ex:"<em>Keep</em> the records updated.（記録を最新の状態に保ってください。）"},
+    {word:"knowledge",pron:"/ˈnɒlɪdʒ/",pos:"名詞",answer:"知識",ex:"She has great <em>knowledge</em> of finance.（彼女は財務の知識が豊富です。）"},
+    {word:"launch",pron:"/lɔːntʃ/",pos:"動詞/名詞",answer:"開始する・発売",ex:"We will <em>launch</em> a new product.（新製品を発売します。）"},
+    {word:"letter",pron:"/ˈlɛtər/",pos:"名詞",answer:"手紙・文字",ex:"Write a formal <em>letter</em>.（正式な手紙を書いてください。）"},
+    {word:"list",pron:"/lɪst/",pos:"名詞",answer:"リスト・一覧",ex:"Make a <em>list</em> of tasks.（タスクのリストを作ってください。）"},
+    {word:"local",pron:"/ˈloʊkəl/",pos:"形容詞",answer:"地元の",ex:"Use <em>local</em> suppliers.（地元のサプライヤーを使ってください。）"},
+    {word:"location",pron:"/loʊˈkeɪʃn/",pos:"名詞",answer:"場所・所在地",ex:"What is the <em>location</em> of the office?（オフィスの場所はどこですか？）"},
+    {word:"manage",pron:"/ˈmænɪdʒ/",pos:"動詞",answer:"管理する",ex:"She <em>manages</em> the sales team.（彼女は営業チームを管理しています。）"},
+    {word:"manager",pron:"/ˈmænɪdʒər/",pos:"名詞",answer:"管理者・マネージャー",ex:"The <em>manager</em> approved the request.（マネージャーが申請を承認しました。）"},
+    {word:"market",pron:"/ˈmɑːrkɪt/",pos:"名詞",answer:"市場",ex:"Enter the Asian <em>market</em>.（アジア市場に参入する。）"},
+    {word:"material",pron:"/məˈtɪəriəl/",pos:"名詞",answer:"資料・材料",ex:"Read the training <em>materials</em>.（研修資料を読んでください。）"},
+    {word:"method",pron:"/ˈmɛθəd/",pos:"名詞",answer:"方法",ex:"Use a better <em>method</em>.（より良い方法を使ってください。）"},
+    {word:"minute",pron:"/ˈmɪnɪt/",pos:"名詞",answer:"分・議事録",ex:"Take the <em>minutes</em> of the meeting.（会議の議事録を取ってください。）"},
+    {word:"miss",pron:"/mɪs/",pos:"動詞",answer:"逃す・欠席する",ex:"Don't <em>miss</em> the deadline.（締め切りを逃さないでください。）"},
+    {word:"model",pron:"/ˈmɒdl/",pos:"名詞",answer:"モデル・型",ex:"This is the latest <em>model</em>.（これは最新モデルです。）"},
+    {word:"move",pron:"/muːv/",pos:"動詞",answer:"移動する",ex:"Please <em>move</em> the meeting to Friday.（会議を金曜日に移してください。）"},
+    {word:"name",pron:"/neɪm/",pos:"名詞",answer:"名前",ex:"Write your <em>name</em> here.（ここに名前を書いてください。）"},
+    {word:"necessary",pron:"/ˈnɛsəseri/",pos:"形容詞",answer:"必要な",ex:"Is this step <em>necessary</em>?（このステップは必要ですか？）"},
+    {word:"note",pron:"/noʊt/",pos:"動詞/名詞",answer:"メモする・注意",ex:"Please <em>note</em> the change.（変更点にご注意ください。）"},
+    {word:"notice",pron:"/ˈnoʊtɪs/",pos:"名詞",answer:"通知・お知らせ",ex:"Read the <em>notice</em> carefully.（通知をよく読んでください。）"},
+    {word:"offer",pron:"/ˈɒfər/",pos:"動詞/名詞",answer:"提供する・申し出",ex:"We <em>offer</em> free shipping.（無料配送を提供しています。）"},
+    {word:"open",pron:"/ˈoʊpən/",pos:"動詞/形容詞",answer:"開く・開いている",ex:"The store is <em>open</em> at 9 AM.（お店は午前9時に開きます。）"},
+    {word:"operation",pron:"/ˌɒpəˈreɪʃn/",pos:"名詞",answer:"運営・業務",ex:"Daily <em>operations</em> run smoothly.（日々の業務はスムーズに進んでいます。）"},
+    {word:"opportunity",pron:"/ˌɒpəˈtjuːnɪti/",pos:"名詞",answer:"機会・チャンス",ex:"This is a great <em>opportunity</em>.（これは素晴らしい機会です。）"},
+    {word:"option",pron:"/ˈɒpʃn/",pos:"名詞",answer:"選択肢・オプション",ex:"We have two <em>options</em>.（2つの選択肢があります。）"},
+    {word:"organize",pron:"/ˈɔːrɡənaɪz/",pos:"動詞",answer:"整理する・組織する",ex:"Please <em>organize</em> the files.（ファイルを整理してください。）"},
+    {word:"output",pron:"/ˈaʊtpʊt/",pos:"名詞",answer:"生産量・アウトプット",ex:"Increase the <em>output</em>.（生産量を増やしてください。）"},
+    {word:"overtime",pron:"/ˈoʊvərtaɪm/",pos:"名詞",answer:"残業",ex:"She worked <em>overtime</em> yesterday.（彼女は昨日残業しました。）"},
+    {word:"owner",pron:"/ˈoʊnər/",pos:"名詞",answer:"オーナー・所有者",ex:"The <em>owner</em> opened a new shop.（オーナーが新しい店を開きました。）"},
+    {word:"participate",pron:"/pɑːrˈtɪsɪpeɪt/",pos:"動詞",answer:"参加する",ex:"Please <em>participate</em> in the survey.（アンケートに参加してください。）"},
+    {word:"payment",pron:"/ˈpeɪmənt/",pos:"名詞",answer:"支払い",ex:"The <em>payment</em> is due today.（今日が支払い期限です。）"},
+    {word:"perform",pron:"/pərˈfɔːrm/",pos:"動詞",answer:"行う・遂行する",ex:"She <em>performs</em> her duties well.（彼女は職務をよく遂行します。）"},
+    {word:"period",pron:"/ˈpɪəriəd/",pos:"名詞",answer:"期間",ex:"The trial <em>period</em> is one month.（試用期間は1ヶ月です。）"},
+    {word:"permit",pron:"/pərˈmɪt/",pos:"動詞/名詞",answer:"許可する・許可証",ex:"You need a <em>permit</em> to enter.（入るには許可証が必要です。）"},
+    {word:"plan",pron:"/plæn/",pos:"名詞",answer:"計画",ex:"Make a business <em>plan</em>.（事業計画を作ってください。）"},
+    {word:"position",pron:"/pəˈzɪʃn/",pos:"名詞",answer:"職位・ポジション",ex:"She applied for the <em>position</em>.（彼女はそのポジションに応募しました。）"},
+    {word:"prepare",pron:"/prɪˈpɛər/",pos:"動詞",answer:"準備する",ex:"Please <em>prepare</em> the presentation.（プレゼンを準備してください。）"},
+    {word:"present",pron:"/prɪˈzɛnt/",pos:"動詞",answer:"発表する・提示する",ex:"He will <em>present</em> the report.（彼が報告書を発表します。）"},
+    {word:"problem",pron:"/ˈprɒbləm/",pos:"名詞",answer:"問題",ex:"Solve the <em>problem</em> quickly.（問題を早く解決してください。）"},
+    {word:"process",pron:"/ˈproʊsɛs/",pos:"名詞",answer:"手順・プロセス",ex:"Follow the <em>process</em> carefully.（手順に注意して従ってください。）"},
+    {word:"product",pron:"/ˈprɒdʌkt/",pos:"名詞",answer:"製品・商品",ex:"This <em>product</em> is very popular.（この製品はとても人気があります。）"},
+    {word:"profit",pron:"/ˈprɒfɪt/",pos:"名詞",answer:"利益",ex:"The company made a <em>profit</em>.（会社は利益を上げました。）"},
+    {word:"project",pron:"/ˈprɒdʒɛkt/",pos:"名詞",answer:"プロジェクト",ex:"The <em>project</em> ends next month.（プロジェクトは来月終わります。）"},
+    {word:"provide",pron:"/prəˈvaɪd/",pos:"動詞",answer:"提供する",ex:"We <em>provide</em> excellent service.（私たちは優れたサービスを提供します。）"},
+    {word:"purchase",pron:"/ˈpɜːrtʃəs/",pos:"動詞/名詞",answer:"購入する・購入",ex:"Make a <em>purchase</em> online.（オンラインで購入してください。）"},
+    {word:"quality",pron:"/ˈkwɒlɪti/",pos:"名詞",answer:"品質",ex:"We focus on <em>quality</em>.（私たちは品質を重視しています。）"},
+    {word:"question",pron:"/ˈkwɛstʃən/",pos:"名詞",answer:"質問",ex:"Do you have any <em>questions</em>?（質問はありますか？）"},
+    {word:"receive",pron:"/rɪˈsiːv/",pos:"動詞",answer:"受け取る",ex:"Did you <em>receive</em> my email?（私のメールを受け取りましたか？）"},
+    {word:"record",pron:"/ˈrɛkərd/",pos:"名詞",answer:"記録",ex:"Keep a <em>record</em> of expenses.（経費の記録をつけてください。）"},
+    {word:"refund",pron:"/ˈriːfʌnd/",pos:"名詞",answer:"返金",ex:"Request a <em>refund</em> here.（こちらから返金を申請してください。）"},
+    {word:"register",pron:"/ˈrɛdʒɪstər/",pos:"動詞",answer:"登録する",ex:"Please <em>register</em> your account.（アカウントを登録してください。）"},
+    {word:"remind",pron:"/rɪˈmaɪnd/",pos:"動詞",answer:"思い出させる・リマインドする",ex:"Please <em>remind</em> me of the meeting.（会議のことを思い出させてください。）"},
+    {word:"replace",pron:"/rɪˈpleɪs/",pos:"動詞",answer:"取り替える・代替する",ex:"<em>Replace</em> the old equipment.（古い設備を取り替えてください。）"},
+    {word:"request",pron:"/rɪˈkwɛst/",pos:"動詞/名詞",answer:"依頼する・リクエスト",ex:"Submit your <em>request</em> here.（こちらからリクエストを提出してください。）"},
+    {word:"resign",pron:"/rɪˈzaɪn/",pos:"動詞",answer:"辞職する",ex:"He decided to <em>resign</em>.（彼は辞職することを決めました。）"},
+    {word:"result",pron:"/rɪˈzʌlt/",pos:"名詞",answer:"結果",ex:"The <em>results</em> are positive.（結果は良好です。）"},
+    {word:"return",pron:"/rɪˈtɜːrn/",pos:"動詞",answer:"返す・戻る",ex:"Please <em>return</em> the item.（商品を返してください。）"},
+    {word:"review",pron:"/rɪˈvjuː/",pos:"動詞/名詞",answer:"見直す・レビュー",ex:"Please <em>review</em> this document.（この書類を見直してください。）"},
+    {word:"role",pron:"/roʊl/",pos:"名詞",answer:"役割",ex:"What is your <em>role</em> in this project?（このプロジェクトでの役割は何ですか？）"},
+    {word:"rule",pron:"/ruːl/",pos:"名詞",answer:"規則",ex:"Follow the company <em>rules</em>.（会社の規則に従ってください。）"},
+    {word:"safe",pron:"/seɪf/",pos:"形容詞",answer:"安全な",ex:"Keep the workplace <em>safe</em>.（職場を安全に保ってください。）"},
+    {word:"sale",pron:"/seɪl/",pos:"名詞",answer:"販売・売上",ex:"The <em>sale</em> starts tomorrow.（セールは明日始まります。）"},
+    {word:"sample",pron:"/ˈsæmpl/",pos:"名詞",answer:"サンプル・見本",ex:"Request a free <em>sample</em>.（無料サンプルを申請してください。）"},
+    {word:"save",pron:"/seɪv/",pos:"動詞",answer:"保存する・節約する",ex:"<em>Save</em> the document.（書類を保存してください。）"},
+    {word:"section",pron:"/ˈsɛkʃn/",pos:"名詞",answer:"部門・セクション",ex:"Go to the HR <em>section</em>.（人事部門に行ってください。）"},
+    {word:"select",pron:"/sɪˈlɛkt/",pos:"動詞",answer:"選ぶ",ex:"Please <em>select</em> a date.（日付を選んでください。）"},
+    {word:"service",pron:"/ˈsɜːrvɪs/",pos:"名詞",answer:"サービス",ex:"Our <em>service</em> is available 24/7.（私たちのサービスは24時間ご利用いただけます。）"},
+    {word:"share",pron:"/ʃɛər/",pos:"動詞",answer:"共有する",ex:"Please <em>share</em> the document.（書類を共有してください。）"},
+    {word:"ship",pron:"/ʃɪp/",pos:"動詞",answer:"発送する",ex:"We will <em>ship</em> your order today.（本日ご注文を発送します。）"},
+    {word:"sign",pron:"/saɪn/",pos:"動詞",answer:"サインする",ex:"Please <em>sign</em> here.（ここにサインしてください。）"},
+    {word:"skill",pron:"/skɪl/",pos:"名詞",answer:"スキル・技術",ex:"Develop your communication <em>skills</em>.（コミュニケーションスキルを磨いてください。）"},
+    {word:"solution",pron:"/səˈluːʃn/",pos:"名詞",answer:"解決策",ex:"Find a <em>solution</em> to the problem.（問題の解決策を見つけてください。）"},
+    {word:"standard",pron:"/ˈstændərd/",pos:"名詞",answer:"基準",ex:"Meet the quality <em>standard</em>.（品質基準を満たしてください。）"},
+    {word:"start",pron:"/stɑːrt/",pos:"動詞",answer:"始める",ex:"Let's <em>start</em> the meeting.（会議を始めましょう。）"},
+    {word:"statement",pron:"/ˈsteɪtmənt/",pos:"名詞",answer:"声明・明細書",ex:"Review your bank <em>statement</em>.（銀行の明細書を確認してください。）"},
+    {word:"status",pron:"/ˈsteɪtəs/",pos:"名詞",answer:"状況・ステータス",ex:"Check the <em>status</em> of your order.（注文のステータスを確認してください。）"},
+    {word:"step",pron:"/stɛp/",pos:"名詞",answer:"ステップ・手順",ex:"Follow each <em>step</em> carefully.（各ステップを注意して行ってください。）"},
+    {word:"stock",pron:"/stɒk/",pos:"名詞",answer:"在庫・株",ex:"Check the <em>stock</em> level.（在庫レベルを確認してください。）"},
+    {word:"store",pron:"/stɔːr/",pos:"名詞",answer:"店・保管する",ex:"Visit our <em>store</em>.（私たちのお店にお越しください。）"},
+    {word:"submit",pron:"/səbˈmɪt/",pos:"動詞",answer:"提出する",ex:"<em>Submit</em> your application here.（こちらから申請書を提出してください。）"},
+    {word:"supply",pron:"/səˈplaɪ/",pos:"名詞",answer:"供給・備品",ex:"Order office <em>supplies</em>.（オフィス用品を注文してください。）"},
+    {word:"support",pron:"/səˈpɔːrt/",pos:"動詞/名詞",answer:"サポートする・支援",ex:"Contact customer <em>support</em>.（カスタマーサポートにご連絡ください。）"},
+    {word:"system",pron:"/ˈsɪstəm/",pos:"名詞",answer:"システム",ex:"Use the new <em>system</em>.（新しいシステムを使ってください。）"},
+    {word:"task",pron:"/tæsk/",pos:"名詞",answer:"タスク・業務",ex:"Complete all <em>tasks</em> by Friday.（金曜日までにすべてのタスクを完了してください。）"},
+    {word:"team",pron:"/tiːm/",pos:"名詞",answer:"チーム",ex:"Our <em>team</em> works together.（私たちのチームは協力して働きます。）"},
+    {word:"term",pron:"/tɜːrm/",pos:"名詞",answer:"期間・条件",ex:"Read the <em>terms</em> carefully.（条件をよく読んでください。）"},
+    {word:"ticket",pron:"/ˈtɪkɪt/",pos:"名詞",answer:"チケット・券",ex:"Book a train <em>ticket</em>.（電車のチケットを予約してください。）"},
+    {word:"time",pron:"/taɪm/",pos:"名詞",answer:"時間",ex:"Manage your <em>time</em> well.（時間をうまく管理してください。）"},
+    {word:"total",pron:"/ˈtoʊtl/",pos:"名詞",answer:"合計",ex:"What is the <em>total</em> amount?（合計金額はいくらですか？）"},
+    {word:"train",pron:"/treɪn/",pos:"動詞",answer:"訓練する",ex:"We need to <em>train</em> the new staff.（新しいスタッフを訓練する必要があります。）"},
+    {word:"transfer",pron:"/trænsˈfɜːr/",pos:"動詞/名詞",answer:"転送する・振替",ex:"Please <em>transfer</em> the money.（お金を振り込んでください。）"},
+    {word:"travel",pron:"/ˈtrævəl/",pos:"動詞",answer:"出張する・旅行する",ex:"She often <em>travels</em> for business.（彼女はよく出張します。）"},
+    {word:"update",pron:"/ˈʌpdeɪt/",pos:"動詞",answer:"更新する",ex:"Please <em>update</em> the database.（データベースを更新してください。）"},
+    {word:"use",pron:"/juːz/",pos:"動詞",answer:"使う",ex:"<em>Use</em> the correct form.（正しいフォームを使ってください。）"},
+    {word:"vacation",pron:"/veɪˈkeɪʃn/",pos:"名詞",answer:"休暇",ex:"She is on <em>vacation</em>.（彼女は休暇中です。）"},
+    {word:"value",pron:"/ˈvæljuː/",pos:"名詞",answer:"価値",ex:"This product offers great <em>value</em>.（この製品は大きな価値を提供します。）"},
+    {word:"vendor",pron:"/ˈvɛndər/",pos:"名詞",answer:"業者・ベンダー",ex:"Choose a reliable <em>vendor</em>.（信頼できる業者を選んでください。）"},
+    {word:"verify",pron:"/ˈvɛrɪfaɪ/",pos:"動詞",answer:"確認する・検証する",ex:"Please <em>verify</em> your identity.（身元を確認してください。）"},
+    {word:"visit",pron:"/ˈvɪzɪt/",pos:"動詞",answer:"訪問する",ex:"We will <em>visit</em> the client.（クライアントを訪問します。）"},
+    {word:"wage",pron:"/weɪdʒ/",pos:"名詞",answer:"賃金・給料",ex:"The minimum <em>wage</em> increased.（最低賃金が上がりました。）"},
+    {word:"work",pron:"/wɜːrk/",pos:"動詞/名詞",answer:"働く・仕事",ex:"She <em>works</em> hard every day.（彼女は毎日一生懸命働きます。）"},
+    {word:"workshop",pron:"/ˈwɜːrkʃɒp/",pos:"名詞",answer:"研修会・ワークショップ",ex:"Attend the <em>workshop</em>.（ワークショップに参加してください。）"},
+    {word:"write",pron:"/raɪt/",pos:"動詞",answer:"書く",ex:"<em>Write</em> a summary.（要約を書いてください。）"},
+    {word:"access",pron:"/ˈæksɛs/",pos:"動詞/名詞",answer:"アクセスする・利用",ex:"You can <em>access</em> the file online.（オンラインでファイルにアクセスできます。）"},
+    {word:"action",pron:"/ˈækʃn/",pos:"名詞",answer:"行動・措置",ex:"Take <em>action</em> immediately.（すぐに行動してください。）"},
+    {word:"active",pron:"/ˈæktɪv/",pos:"形容詞",answer:"積極的な・活発な",ex:"Stay <em>active</em> in meetings.（会議では積極的でいてください。）"},
+    {word:"actual",pron:"/ˈæktʃuəl/",pos:"形容詞",answer:"実際の",ex:"The <em>actual</em> cost was higher.（実際の費用はより高かった。）"},
+    {word:"add",pron:"/æd/",pos:"動詞",answer:"追加する",ex:"Please <em>add</em> your signature.（署名を追加してください。）"},
+    {word:"administration",pron:"/ədˌmɪnɪˈstreɪʃn/",pos:"名詞",answer:"管理・行政",ex:"Contact the <em>administration</em> office.（管理部門に連絡してください。）"},
+    {word:"advance",pron:"/ədˈvæns/",pos:"名詞/動詞",answer:"事前に・前進する",ex:"Book <em>in advance</em>.（事前に予約してください。）"},
+    {word:"agent",pron:"/ˈeɪdʒənt/",pos:"名詞",answer:"担当者・代理人",ex:"Contact your <em>agent</em>.（担当者に連絡してください。）"},
+    {word:"allow",pron:"/əˈlaʊ/",pos:"動詞",answer:"許可する・許す",ex:"We do not <em>allow</em> late submissions.（遅延提出は許可していません。）"},
+    {word:"amount",pron:"/əˈmaʊnt/",pos:"名詞",answer:"金額・量",ex:"What is the total <em>amount</em>?（総額はいくらですか？）"},
+    {word:"annual",pron:"/ˈænjuəl/",pos:"形容詞",answer:"年次の・年間の",ex:"The <em>annual</em> report is ready.（年次報告書が完成しました。）"},
+    {word:"area",pron:"/ˈɛəriə/",pos:"名詞",answer:"エリア・地域",ex:"This <em>area</em> is restricted.（このエリアは立入禁止です。）"},
+    {word:"asset",pron:"/ˈæsɛt/",pos:"名詞",answer:"資産",ex:"Protect company <em>assets</em>.（会社の資産を守ってください。）"},
+    {word:"assign",pron:"/əˈsaɪn/",pos:"動詞",answer:"割り当てる",ex:"<em>Assign</em> tasks to each member.（各メンバーにタスクを割り当ててください。）"},
+    {word:"balance",pron:"/ˈbæləns/",pos:"名詞",answer:"残高・バランス",ex:"Check your account <em>balance</em>.（口座残高を確認してください。）"},
+    {word:"basis",pron:"/ˈbeɪsɪs/",pos:"名詞",answer:"基礎・ベース",ex:"On a daily <em>basis</em>.（日常的に。）"},
+    {word:"board",pron:"/bɔːrd/",pos:"名詞",answer:"取締役会・ボード",ex:"Report to the <em>board</em>.（取締役会に報告してください。）"},
+    {word:"book",pron:"/bʊk/",pos:"動詞",answer:"予約する",ex:"Please <em>book</em> a flight.（フライトを予約してください。）"},
+    {word:"break",pron:"/breɪk/",pos:"名詞",answer:"休憩",ex:"Take a short <em>break</em>.（少し休憩してください。）"},
+    {word:"brief",pron:"/briːf/",pos:"形容詞",answer:"簡潔な・短い",ex:"Give a <em>brief</em> summary.（簡潔な要約を述べてください。）"},
+    {word:"business",pron:"/ˈbɪznɪs/",pos:"名詞",answer:"ビジネス・商売",ex:"She started her own <em>business</em>.（彼女は自分のビジネスを始めました。）"},
+    {word:"cash",pron:"/kæʃ/",pos:"名詞",answer:"現金",ex:"Pay by <em>cash</em> or card.（現金かカードで支払ってください。）"},
+    {word:"category",pron:"/ˈkætɪɡɔːri/",pos:"名詞",answer:"カテゴリー",ex:"Sort by <em>category</em>.（カテゴリーで並べてください。）"},
+    {word:"cause",pron:"/kɔːz/",pos:"名詞",answer:"原因",ex:"Find the <em>cause</em> of the problem.（問題の原因を見つけてください。）"},
+    {word:"center",pron:"/ˈsɛntər/",pos:"名詞",answer:"センター・中心",ex:"Visit the service <em>center</em>.（サービスセンターにお越しください。）"},
+    {word:"change",pron:"/tʃeɪndʒ/",pos:"動詞/名詞",answer:"変更する・変化",ex:"Please <em>change</em> the schedule.（スケジュールを変更してください。）"},
+    {word:"close",pron:"/kloʊz/",pos:"動詞",answer:"閉じる・締める",ex:"<em>Close</em> the account.（口座を閉じてください。）"},
+    {word:"code",pron:"/koʊd/",pos:"名詞",answer:"コード・番号",ex:"Enter the security <em>code</em>.（セキュリティコードを入力してください。）"},
+    {word:"communicate",pron:"/kəˈmjuːnɪkeɪt/",pos:"動詞",answer:"伝える・連絡を取る",ex:"<em>Communicate</em> clearly with clients.（クライアントと明確に連絡を取ってください。）"},
+    {word:"complaint",pron:"/kəmˈpleɪnt/",pos:"名詞",answer:"クレーム・苦情",ex:"File a <em>complaint</em> online.（オンラインで苦情を申し立ててください。）"},
+    {word:"condition",pron:"/kənˈdɪʃn/",pos:"名詞",answer:"条件・状態",ex:"Check the <em>condition</em> of the product.（製品の状態を確認してください。）"},
+    {word:"cooperate",pron:"/koʊˈɒpəreɪt/",pos:"動詞",answer:"協力する",ex:"Please <em>cooperate</em> with the team.（チームに協力してください。）"},
+    {word:"correct",pron:"/kəˈrɛkt/",pos:"動詞/形容詞",answer:"訂正する・正しい",ex:"Please <em>correct</em> the error.（エラーを訂正してください。）"},
+    {word:"cover",pron:"/ˈkʌvər/",pos:"動詞",answer:"カバーする・対応する",ex:"This plan <em>covers</em> all costs.（この計画はすべての費用をカバーします。）"},
+    {word:"current",pron:"/ˈkɜːrənt/",pos:"形容詞",answer:"現在の",ex:"What is the <em>current</em> status?（現在の状況はどうですか？）"},
+    {word:"deal",pron:"/diːl/",pos:"名詞/動詞",answer:"取引・扱う",ex:"Close the <em>deal</em> today.（今日中に取引を成立させてください。）"},
+    {word:"detail",pron:"/ˈdiːteɪl/",pos:"名詞",answer:"詳細",ex:"Check the <em>details</em>.（詳細を確認してください。）"},
+    {word:"direct",pron:"/dɪˈrɛkt/",pos:"形容詞/動詞",answer:"直接の・指示する",ex:"She will <em>direct</em> the project.（彼女がプロジェクトを指揮します。）"},
+    {word:"effective",pron:"/ɪˈfɛktɪv/",pos:"形容詞",answer:"効果的な",ex:"This is an <em>effective</em> strategy.（これは効果的な戦略です。）"},
+    {word:"effort",pron:"/ˈɛfərt/",pos:"名詞",answer:"努力",ex:"Thank you for your <em>effort</em>.（ご努力に感謝します。）"},
+    {word:"eligible",pron:"/ˈɛlɪdʒɪbl/",pos:"形容詞",answer:"資格のある",ex:"Are you <em>eligible</em> to apply?（応募資格はありますか？）"},
+    {word:"encourage",pron:"/ɪnˈkʌrɪdʒ/",pos:"動詞",answer:"奨励する",ex:"We <em>encourage</em> teamwork.（私たちはチームワークを奨励します。）"},
+    {word:"ensure",pron:"/ɪnˈʃʊər/",pos:"動詞",answer:"確保する",ex:"Please <em>ensure</em> accuracy.（正確さを確保してください。）"},
+    {word:"estimate",pron:"/ˈɛstɪmɪt/",pos:"名詞",answer:"見積もり",ex:"Get a cost <em>estimate</em>.（費用の見積もりを取ってください。）"},
+    {word:"exchange",pron:"/ɪksˈtʃeɪndʒ/",pos:"動詞/名詞",answer:"交換する・為替",ex:"Can I <em>exchange</em> this item?（この商品を交換できますか？）"},
+    {word:"executive",pron:"/ɪɡˈzɛkjʊtɪv/",pos:"名詞",answer:"役員・経営幹部",ex:"The <em>executives</em> held a meeting.（役員たちが会議を開きました。）"},
+    {word:"expand",pron:"/ɪkˈspænd/",pos:"動詞",answer:"拡大する",ex:"We plan to <em>expand</em> overseas.（海外に拡大する計画があります。）"},
+    {word:"expense",pron:"/ɪkˈspɛns/",pos:"名詞",answer:"経費・費用",ex:"Submit your <em>expenses</em>.（経費を提出してください。）"},
+    {word:"export",pron:"/ˈɛkspɔːrt/",pos:"動詞",answer:"輸出する",ex:"We <em>export</em> goods to Europe.（私たちはヨーロッパに商品を輸出しています。）"},
+    {word:"factor",pron:"/ˈfæktər/",pos:"名詞",answer:"要因",ex:"Price is a key <em>factor</em>.（価格は重要な要因です。）"},
+    {word:"fair",pron:"/fɛər/",pos:"形容詞",answer:"公平な",ex:"Be <em>fair</em> to all employees.（すべての従業員に公平でいてください。）"},
+    {word:"field",pron:"/fiːld/",pos:"名詞",answer:"分野・現場",ex:"She works in the IT <em>field</em>.（彼女はIT分野で働いています。）"},
+    {word:"finance",pron:"/ˈfaɪnæns/",pos:"名詞",answer:"財務・金融",ex:"Work in <em>finance</em>.（財務部門で働く。）"},
+    {word:"firm",pron:"/fɜːrm/",pos:"名詞",answer:"会社・企業",ex:"She joined a law <em>firm</em>.（彼女は法律事務所に入社しました。）"},
+    {word:"fixed",pron:"/fɪkst/",pos:"形容詞",answer:"固定の",ex:"A <em>fixed</em> salary.（固定給。）"},
+    {word:"flexible",pron:"/ˈflɛksɪbl/",pos:"形容詞",answer:"柔軟な",ex:"We offer <em>flexible</em> hours.（フレキシブルな勤務時間を提供しています。）"},
+    {word:"flow",pron:"/floʊ/",pos:"名詞",answer:"流れ・フロー",ex:"Improve the work <em>flow</em>.（仕事の流れを改善してください。）"},
+    {word:"focus",pron:"/ˈfoʊkəs/",pos:"動詞",answer:"集中する",ex:"<em>Focus</em> on the task.（タスクに集中してください。）"},
+    {word:"forecast",pron:"/ˈfɔːrkæst/",pos:"名詞",answer:"予測・予報",ex:"The <em>forecast</em> looks positive.（予測は前向きです。）"},
+    {word:"form",pron:"/fɔːrm/",pos:"名詞",answer:"用紙・フォーム",ex:"Fill in the <em>form</em>.（フォームに記入してください。）"},
+    {word:"formal",pron:"/ˈfɔːrməl/",pos:"形容詞",answer:"正式な・フォーマルな",ex:"Send a <em>formal</em> letter.（正式な手紙を送ってください。）"},
+    {word:"function",pron:"/ˈfʌŋkʃn/",pos:"名詞",answer:"機能・役割",ex:"What is the main <em>function</em>?（主な機能は何ですか？）"},
+    {word:"fund",pron:"/fʌnd/",pos:"名詞",answer:"資金",ex:"Apply for a <em>fund</em>.（資金を申請してください。）"},
+    {word:"gain",pron:"/ɡeɪn/",pos:"動詞/名詞",answer:"得る・利益",ex:"<em>Gain</em> new experience.（新しい経験を得てください。）"},
+    {word:"global",pron:"/ˈɡloʊbl/",pos:"形容詞",answer:"グローバルな・世界的な",ex:"We are a <em>global</em> company.（私たちはグローバル企業です。）"},
+    {word:"headquarters",pron:"/ˈhɛdˌkwɔːrtərz/",pos:"名詞",answer:"本社・本部",ex:"Visit our <em>headquarters</em>.（本社にお越しください。）"},
+    {word:"import",pron:"/ˈɪmpɔːrt/",pos:"動詞",answer:"輸入する",ex:"We <em>import</em> raw materials.（私たちは原材料を輸入しています。）"},
+    {word:"income",pron:"/ˈɪnkʌm/",pos:"名詞",answer:"収入",ex:"Increase your <em>income</em>.（収入を増やしてください。）"},
+    {word:"industry",pron:"/ˈɪndəstri/",pos:"名詞",answer:"産業・業界",ex:"Work in the food <em>industry</em>.（食品業界で働く。）"},
+    {word:"item",pron:"/ˈaɪtəm/",pos:"名詞",answer:"品目・アイテム",ex:"Each <em>item</em> has a code.（各品目にはコードがあります。）"},
+    {word:"job",pron:"/dʒɒb/",pos:"名詞",answer:"仕事・職",ex:"Apply for the <em>job</em>.（仕事に応募してください。）"},
+    {word:"key",pron:"/kiː/",pos:"形容詞",answer:"重要な・主要な",ex:"This is a <em>key</em> point.（これは重要なポイントです。）"},
+    {word:"labor",pron:"/ˈleɪbər/",pos:"名詞",answer:"労働",ex:"Reduce <em>labor</em> costs.（労働コストを削減してください。）"},
+    {word:"lead",pron:"/liːd/",pos:"動詞",answer:"率いる・リードする",ex:"She will <em>lead</em> the project.（彼女がプロジェクトを率います。）"},
+    {word:"lease",pron:"/liːs/",pos:"名詞/動詞",answer:"リース・賃貸する",ex:"Sign the <em>lease</em> agreement.（賃貸契約書にサインしてください。）"},
+    {word:"level",pron:"/ˈlɛvəl/",pos:"名詞",answer:"レベル・水準",ex:"Reach a higher <em>level</em>.（より高いレベルに達してください。）"},
+    {word:"limit",pron:"/ˈlɪmɪt/",pos:"名詞",answer:"制限・上限",ex:"There is a time <em>limit</em>.（制限時間があります。）"},
+    {word:"line",pron:"/laɪn/",pos:"名詞",answer:"路線・回線",ex:"Call the help <em>line</em>.（ヘルプラインに電話してください。）"},
+    {word:"link",pron:"/lɪŋk/",pos:"名詞",answer:"リンク・つながり",ex:"Click the <em>link</em>.（リンクをクリックしてください。）"},
+    {word:"loan",pron:"/loʊn/",pos:"名詞",answer:"ローン・融資",ex:"Apply for a bank <em>loan</em>.（銀行ローンを申し込んでください。）"},
+    {word:"loss",pron:"/lɒs/",pos:"名詞",answer:"損失",ex:"Report any <em>loss</em> immediately.（損失はすぐに報告してください。）"},
+    {word:"maintenance",pron:"/ˈmeɪntənəns/",pos:"名詞",answer:"メンテナンス・保守",ex:"Schedule regular <em>maintenance</em>.（定期メンテナンスを予定してください。）"},
+    {word:"measure",pron:"/ˈmɛʒər/",pos:"動詞/名詞",answer:"測る・対策",ex:"Take safety <em>measures</em>.（安全対策を講じてください。）"},
+    {word:"member",pron:"/ˈmɛmbər/",pos:"名詞",answer:"メンバー・会員",ex:"All <em>members</em> must attend.（全メンバーが参加しなければなりません。）"},
+    {word:"memo",pron:"/ˈmɛmoʊ/",pos:"名詞",answer:"メモ・回覧",ex:"Send a company-wide <em>memo</em>.（全社メモを送ってください。）"},
+    {word:"network",pron:"/ˈnɛtwɜːrk/",pos:"名詞",answer:"ネットワーク",ex:"Build your professional <em>network</em>.（プロのネットワークを築いてください。）"},
+    {word:"objective",pron:"/əbˈdʒɛktɪv/",pos:"名詞",answer:"目標・目的",ex:"Set clear <em>objectives</em>.（明確な目標を設定してください。）"},
+    {word:"official",pron:"/əˈfɪʃl/",pos:"形容詞",answer:"公式の",ex:"This is the <em>official</em> document.（これは公式書類です。）"},
+    {word:"on-site",pron:"/ˌɒnˈsaɪt/",pos:"形容詞",answer:"現地の・オンサイトの",ex:"There is <em>on-site</em> parking.（現地に駐車場があります。）"},
+    {word:"ongoing",pron:"/ˈɒnɡoʊɪŋ/",pos:"形容詞",answer:"進行中の",ex:"This is an <em>ongoing</em> project.（これは進行中のプロジェクトです。）"},
+    {word:"outlet",pron:"/ˈaʊtlɛt/",pos:"名詞",answer:"販売店・コンセント",ex:"Buy at the factory <em>outlet</em>.（アウトレットで購入してください。）"},
+    {word:"outstanding",pron:"/ˌaʊtˈstændɪŋ/",pos:"形容詞",answer:"未払いの・優れた",ex:"The invoice is still <em>outstanding</em>.（請求書はまだ未払いです。）"},
+    {word:"package",pron:"/ˈpækɪdʒ/",pos:"名詞",answer:"パッケージ・小包",ex:"Track your <em>package</em>.（荷物を追跡してください。）"},
+    {word:"partner",pron:"/ˈpɑːrtnər/",pos:"名詞",answer:"パートナー・提携先",ex:"Work with a business <em>partner</em>.（ビジネスパートナーと協力する。）"},
+    {word:"pending",pron:"/ˈpɛndɪŋ/",pos:"形容詞",answer:"保留中の",ex:"The request is <em>pending</em>.（申請は保留中です。）"},
+    {word:"permanent",pron:"/ˈpɜːrmənənt/",pos:"形容詞",answer:"永続的な・正規の",ex:"She got a <em>permanent</em> position.（彼女は正規の職を得ました。）"},
+    {word:"policy",pron:"/ˈpɒlɪsi/",pos:"名詞",answer:"方針・規定",ex:"Read the company <em>policy</em>.（会社の規定を読んでください。）"},
+    {word:"post",pron:"/poʊst/",pos:"動詞/名詞",answer:"掲示する・ポスト",ex:"<em>Post</em> the announcement.（お知らせを掲示してください。）"},
+    {word:"potential",pron:"/pəˈtɛnʃl/",pos:"形容詞/名詞",answer:"可能性のある・潜在力",ex:"She has great <em>potential</em>.（彼女には大きな可能性があります。）"},
+    {word:"practical",pron:"/ˈpræktɪkl/",pos:"形容詞",answer:"実用的な",ex:"Give a <em>practical</em> example.（実用的な例を挙げてください。）"},
+    {word:"press",pron:"/prɛs/",pos:"動詞",answer:"押す・プレスする",ex:"<em>Press</em> the button.（ボタンを押してください。）"},
+    {word:"previous",pron:"/ˈpriːviəs/",pos:"形容詞",answer:"以前の",ex:"Review the <em>previous</em> report.（以前の報告書を確認してください。）"},
+    {word:"priority",pron:"/praɪˈɒrɪti/",pos:"名詞",answer:"優先事項",ex:"Set your <em>priority</em>.（優先事項を決めてください。）"},
+    {word:"procedure",pron:"/prəˈsiːdʒər/",pos:"名詞",answer:"手続き・手順",ex:"Follow the <em>procedure</em>.（手順に従ってください。）"},
+    {word:"promote",pron:"/prəˈmoʊt/",pos:"動詞",answer:"昇進させる・宣伝する",ex:"She was <em>promoted</em> last year.（彼女は昨年昇進しました。）"},
+    {word:"propose",pron:"/prəˈpoʊz/",pos:"動詞",answer:"提案する",ex:"I would like to <em>propose</em> a new plan.（新しい計画を提案したい。）"},
+    {word:"protect",pron:"/prəˈtɛkt/",pos:"動詞",answer:"保護する",ex:"<em>Protect</em> customer data.（顧客データを保護してください。）"},
+    {word:"publish",pron:"/ˈpʌblɪʃ/",pos:"動詞",answer:"公表する・出版する",ex:"We will <em>publish</em> the results.（結果を公表します。）"},
+    {word:"rate",pron:"/reɪt/",pos:"名詞",answer:"割合・レート",ex:"The interest <em>rate</em> is low.（金利が低い。）"},
+    {word:"reach",pron:"/riːtʃ/",pos:"動詞",answer:"到達する・連絡する",ex:"Please <em>reach</em> us by email.（メールでご連絡ください。）"},
+    {word:"reason",pron:"/ˈriːzn/",pos:"名詞",answer:"理由",ex:"Give a clear <em>reason</em>.（明確な理由を述べてください。）"},
+    {word:"reduce",pron:"/rɪˈdjuːs/",pos:"動詞",answer:"減らす",ex:"<em>Reduce</em> waste.（無駄を減らしてください。）"},
+    {word:"reference",pron:"/ˈrɛfrəns/",pos:"名詞",answer:"参照・紹介状",ex:"Use this as a <em>reference</em>.（これを参照として使ってください。）"},
+    {word:"relevant",pron:"/ˈrɛlɪvənt/",pos:"形容詞",answer:"関連する",ex:"Share <em>relevant</em> information.（関連する情報を共有してください。）"},
+    {word:"reliable",pron:"/rɪˈlaɪəbl/",pos:"形容詞",answer:"信頼できる",ex:"Choose a <em>reliable</em> partner.（信頼できるパートナーを選んでください。）"},
+    {word:"rent",pron:"/rɛnt/",pos:"動詞/名詞",answer:"借りる・賃料",ex:"<em>Rent</em> an office space.（オフィススペースを借りてください。）"},
+    {word:"respond",pron:"/rɪˈspɒnd/",pos:"動詞",answer:"返答する",ex:"Please <em>respond</em> by email.（メールで返答してください。）"},
+    {word:"responsible",pron:"/rɪˈspɒnsɪbl/",pos:"形容詞",answer:"責任のある",ex:"Be <em>responsible</em> for your work.（自分の仕事に責任を持ってください。）"},
+    {word:"revenue",pron:"/ˈrɛvənjuː/",pos:"名詞",answer:"収益",ex:"<em>Revenue</em> grew by 10%.（収益が10%伸びました。）"},
+    {word:"safe",pron:"/seɪf/",pos:"形容詞",answer:"安全な",ex:"Keep the data <em>safe</em>.（データを安全に保ってください。）"},
+    {word:"satisfy",pron:"/ˈsætɪsfaɪ/",pos:"動詞",answer:"満足させる",ex:"We aim to <em>satisfy</em> customers.（顧客を満足させることを目指しています。）"},
+    {word:"situation",pron:"/ˌsɪtʃuˈeɪʃn/",pos:"名詞",answer:"状況",ex:"Explain the current <em>situation</em>.（現在の状況を説明してください。）"},
+    {word:"smooth",pron:"/smuːð/",pos:"形容詞",answer:"スムーズな",ex:"Ensure a <em>smooth</em> process.（スムーズなプロセスを確保してください。）"},
+    {word:"space",pron:"/speɪs/",pos:"名詞",answer:"スペース・空間",ex:"Rent office <em>space</em>.（オフィススペースを借りてください。）"},
+    {word:"specific",pron:"/spɪˈsɪfɪk/",pos:"形容詞",answer:"具体的な・特定の",ex:"Give <em>specific</em> details.（具体的な詳細を述べてください。）"},
+    {word:"spend",pron:"/spɛnd/",pos:"動詞",answer:"費やす・使う",ex:"Don't <em>spend</em> too much.（使い過ぎないでください。）"},
+    {word:"sponsor",pron:"/ˈspɒnsər/",pos:"動詞/名詞",answer:"スポンサーになる・後援者",ex:"We are the main <em>sponsor</em>.（私たちがメインスポンサーです。）"},
+    {word:"survey",pron:"/ˈsɜːrveɪ/",pos:"名詞",answer:"アンケート・調査",ex:"Complete the <em>survey</em>.（アンケートに答えてください。）"},
+    {word:"target",pron:"/ˈtɑːrɡɪt/",pos:"名詞",answer:"目標・ターゲット",ex:"Reach the sales <em>target</em>.（売上目標を達成してください。）"},
+    {word:"technology",pron:"/tɛkˈnɒlədʒi/",pos:"名詞",answer:"技術・テクノロジー",ex:"Use new <em>technology</em>.（新しい技術を使ってください。）"},
+    {word:"temporary",pron:"/ˈtɛmpəreri/",pos:"形容詞",answer:"一時的な",ex:"This is a <em>temporary</em> fix.（これは一時的な修正です。）"},
+    {word:"transaction",pron:"/trænˈzækʃn/",pos:"名詞",answer:"取引",ex:"Record each <em>transaction</em>.（各取引を記録してください。）"},
+    {word:"trend",pron:"/trɛnd/",pos:"名詞",answer:"トレンド・傾向",ex:"Follow market <em>trends</em>.（市場のトレンドに従ってください。）"},
+    {word:"urgent",pron:"/ˈɜːrdʒənt/",pos:"形容詞",answer:"緊急の",ex:"This is an <em>urgent</em> matter.（これは緊急の問題です。）"},
+    {word:"useful",pron:"/ˈjuːsfəl/",pos:"形容詞",answer:"役に立つ",ex:"This tool is very <em>useful</em>.（このツールはとても役に立ちます。）"},
+    {word:"valid",pron:"/ˈvælɪd/",pos:"形容詞",answer:"有効な",ex:"Your ID must be <em>valid</em>.（IDは有効でなければなりません。）"},
+    {word:"vary",pron:"/ˈvɛəri/",pos:"動詞",answer:"異なる・変わる",ex:"Prices may <em>vary</em>.（価格は異なる場合があります。）"},
+    {word:"view",pron:"/vjuː/",pos:"動詞/名詞",answer:"見る・見解",ex:"<em>View</em> the report online.（レポートをオンラインで見てください。）"},
+    {word:"warehouse",pron:"/ˈwɛərhaʊs/",pos:"名詞",answer:"倉庫",ex:"Store goods in the <em>warehouse</em>.（倉庫に商品を保管してください。）"},
+    {word:"website",pron:"/ˈwɛbsaɪt/",pos:"名詞",answer:"ウェブサイト",ex:"Visit our <em>website</em>.（私たちのウェブサイトをご覧ください。）"},
+    {word:"weekly",pron:"/ˈwiːkli/",pos:"形容詞",answer:"毎週の",ex:"Attend the <em>weekly</em> meeting.（毎週の会議に出席してください。）"},
+    {word:"workplace",pron:"/ˈwɜːrkpleɪs/",pos:"名詞",answer:"職場",ex:"Maintain a clean <em>workplace</em>.（職場を清潔に保ってください。）"},
+    {word:"worldwide",pron:"/ˌwɜːrldˈwaɪd/",pos:"形容詞",answer:"世界中の",ex:"We have <em>worldwide</em> customers.（世界中にお客様がいます。）"},
+    {word:"zone",pron:"/zoʊn/",pos:"名詞",answer:"ゾーン・地区",ex:"This is a no-parking <em>zone</em>.（ここは駐車禁止ゾーンです。）"},
+    {word:"absent",pron:"/ˈæbsənt/",pos:"形容詞",answer:"欠席の・不在の",ex:"She was <em>absent</em> from the meeting.（彼女は会議を欠席しました。）"},
+    {word:"accurate",pron:"/ˈækjərɪt/",pos:"形容詞",answer:"正確な",ex:"Be <em>accurate</em> in your report.（報告書は正確にしてください。）"},
+    {word:"achievement",pron:"/əˈtʃiːvmənt/",pos:"名詞",answer:"達成・成果",ex:"This is a great <em>achievement</em>.（これは素晴らしい成果です。）"},
+    {word:"adapt",pron:"/əˈdæpt/",pos:"動詞",answer:"適応する",ex:"<em>Adapt</em> to the new system.（新しいシステムに適応してください。）"},
+    {word:"adequate",pron:"/ˈædɪkwɪt/",pos:"形容詞",answer:"適切な・十分な",ex:"Ensure <em>adequate</em> resources.（適切なリソースを確保してください。）"},
+    {word:"adjust",pron:"/əˈdʒʌst/",pos:"動詞",answer:"調整する",ex:"Please <em>adjust</em> the settings.（設定を調整してください。）"},
+    {word:"admit",pron:"/ədˈmɪt/",pos:"動詞",answer:"認める・入場を許可する",ex:"Please <em>admit</em> the error.（エラーを認めてください。）"},
+    {word:"adopt",pron:"/əˈdɒpt/",pos:"動詞",answer:"採用する",ex:"We will <em>adopt</em> a new policy.（新しい方針を採用します。）"},
+    {word:"advice",pron:"/ədˈvaɪs/",pos:"名詞",answer:"アドバイス・助言",ex:"Give your <em>advice</em>.（アドバイスをください。）"},
+    {word:"affect",pron:"/əˈfɛkt/",pos:"動詞",answer:"影響する",ex:"This will <em>affect</em> the budget.（これは予算に影響します。）"},
+    {word:"agency",pron:"/ˈeɪdʒənsi/",pos:"名詞",answer:"代理店・機関",ex:"Hire a marketing <em>agency</em>.（マーケティング代理店を雇ってください。）"},
+    {word:"agenda",pron:"/əˈdʒɛndə/",pos:"名詞",answer:"議題",ex:"Check the meeting <em>agenda</em>.（会議の議題を確認してください。）"},
+    {word:"aim",pron:"/eɪm/",pos:"動詞",answer:"目指す・狙う",ex:"We <em>aim</em> to improve quality.（品質改善を目指しています。）"},
+    {word:"allocate",pron:"/ˈæləkeɪt/",pos:"動詞",answer:"割り当てる",ex:"<em>Allocate</em> the budget wisely.（予算を賢く割り当ててください。）"},
+    {word:"analyze",pron:"/ˈænəlaɪz/",pos:"動詞",answer:"分析する",ex:"Please <em>analyze</em> the data.（データを分析してください。）"},
+    {word:"apply",pron:"/əˈplaɪ/",pos:"動詞",answer:"申し込む・適用する",ex:"<em>Apply</em> the discount code.（割引コードを適用してください。）"},
+    {word:"appointment",pron:"/əˈpɔɪntmənt/",pos:"名詞",answer:"予約",ex:"Make an <em>appointment</em>.（予約をしてください。）"},
+    {word:"assess",pron:"/əˈsɛs/",pos:"動詞",answer:"評価する",ex:"<em>Assess</em> the situation.（状況を評価してください。）"},
+    {word:"associate",pron:"/əˈsoʊsiɪt/",pos:"名詞",answer:"同僚・仲間",ex:"She is my business <em>associate</em>.（彼女はビジネスの仲間です。）"},
+    {word:"authority",pron:"/ɔːˈθɒrɪti/",pos:"名詞",answer:"権限・当局",ex:"Get the <em>authority</em> to proceed.（進める権限を得てください。）"},
+    {word:"average",pron:"/ˈævərɪdʒ/",pos:"名詞/形容詞",answer:"平均・平均的な",ex:"The <em>average</em> salary is rising.（平均給与が上昇しています。）"},
+    {word:"aware",pron:"/əˈwɛər/",pos:"形容詞",answer:"気づいている",ex:"Be <em>aware</em> of the rules.（規則を把握してください。）"},
+    {word:"background",pron:"/ˈbækɡraʊnd/",pos:"名詞",answer:"経歴・背景",ex:"What is your educational <em>background</em>?（学歴はどちらですか？）"},
+    {word:"based",pron:"/beɪst/",pos:"形容詞",answer:"拠点を置く",ex:"We are <em>based</em> in Tokyo.（私たちは東京に拠点を置いています。）"},
+    {word:"below",pron:"/bɪˈloʊ/",pos:"前置詞",answer:"以下に・下に",ex:"See the details <em>below</em>.（以下に詳細があります。）"},
+    {word:"between",pron:"/bɪˈtwiːn/",pos:"前置詞",answer:"〜の間に",ex:"Choose <em>between</em> the two options.（2つの選択肢から選んでください。）"},
+    {word:"bid",pron:"/bɪd/",pos:"名詞/動詞",answer:"入札・応札する",ex:"Submit a <em>bid</em>.（入札を提出してください。）"},
+    {word:"bonus",pron:"/ˈboʊnəs/",pos:"名詞",answer:"ボーナス・特典",ex:"Receive a year-end <em>bonus</em>.（年末ボーナスをもらう。）"},
+    {word:"capacity",pron:"/kəˈpæsɪti/",pos:"名詞",answer:"容量・能力",ex:"Work at full <em>capacity</em>.（フル稼働で働く。）"},
+    {word:"care",pron:"/kɛər/",pos:"動詞/名詞",answer:"気にする・ケア",ex:"Take <em>care</em> of the customer.（顧客をケアしてください。）"},
+    {word:"certificate",pron:"/səˈtɪfɪkɪt/",pos:"名詞",answer:"証明書",ex:"Show your <em>certificate</em>.（証明書を提示してください。）"},
+    {word:"chairman",pron:"/ˈtʃɛrmən/",pos:"名詞",answer:"議長・会長",ex:"The <em>chairman</em> opened the meeting.（議長が会議を開きました。）"},
+    {word:"challenge",pron:"/ˈtʃælɪndʒ/",pos:"名詞",answer:"課題・チャレンジ",ex:"Face the <em>challenge</em>.（課題に立ち向かってください。）"},
+    {word:"clear",pron:"/klɪər/",pos:"形容詞",answer:"明確な・クリアな",ex:"Give a <em>clear</em> answer.（明確な答えをください。）"},
+    {word:"colleague",pron:"/ˈkɒliːɡ/",pos:"名詞",answer:"同僚",ex:"Introduce your <em>colleague</em>.（同僚を紹介してください。）"},
+    {word:"commitment",pron:"/kəˈmɪtmənt/",pos:"名詞",answer:"コミットメント・約束",ex:"Show your <em>commitment</em>.（コミットメントを示してください。）"},
+    {word:"compensation",pron:"/ˌkɒmpənˈseɪʃn/",pos:"名詞",answer:"補償・報酬",ex:"Request <em>compensation</em>.（補償を求めてください。）"},
+    {word:"competitive",pron:"/kəmˈpɛtɪtɪv/",pos:"形容詞",answer:"競争力のある",ex:"Offer a <em>competitive</em> price.（競争力のある価格を提示してください。）"},
+    {word:"confidential",pron:"/ˌkɒnfɪˈdɛnʃl/",pos:"形容詞",answer:"機密の",ex:"This document is <em>confidential</em>.（この書類は機密です。）"},
+    {word:"consider",pron:"/kənˈsɪdər/",pos:"動詞",answer:"検討する",ex:"Please <em>consider</em> our proposal.（私たちの提案を検討してください。）"},
+    {word:"consistent",pron:"/kənˈsɪstənt/",pos:"形容詞",answer:"一貫した",ex:"Be <em>consistent</em> in your work.（仕事において一貫性を持ってください。）"},
+    {word:"contribution",pron:"/ˌkɒntrɪˈbjuːʃn/",pos:"名詞",answer:"貢献",ex:"Thank you for your <em>contribution</em>.（貢献に感謝します。）"},
+    {word:"coordinate",pron:"/koʊˈɔːrdɪneɪt/",pos:"動詞",answer:"調整する・連携する",ex:"<em>Coordinate</em> with other teams.（他のチームと連携してください。）"},
+    {word:"corporate",pron:"/ˈkɔːrpərɪt/",pos:"形容詞",answer:"企業の・法人の",ex:"Attend the <em>corporate</em> event.（企業イベントに参加してください。）"},
+    {word:"cost-effective",pron:"/ˌkɒstɪˈfɛktɪv/",pos:"形容詞",answer:"費用対効果の高い",ex:"Choose a <em>cost-effective</em> solution.（費用対効果の高い解決策を選んでください。）"},
+    {word:"credit",pron:"/ˈkrɛdɪt/",pos:"名詞",answer:"クレジット・信用",ex:"Pay by <em>credit</em> card.（クレジットカードで支払ってください。）"},
+    {word:"criteria",pron:"/kraɪˈtɪəriə/",pos:"名詞",answer:"基準",ex:"Meet the selection <em>criteria</em>.（選考基準を満たしてください。）"},
+    {word:"currency",pron:"/ˈkʌrənsi/",pos:"名詞",answer:"通貨",ex:"Exchange <em>currency</em> at the bank.（銀行で通貨を両替してください。）"},
+    {word:"customize",pron:"/ˈkʌstəmaɪz/",pos:"動詞",answer:"カスタマイズする",ex:"<em>Customize</em> your order.（注文をカスタマイズしてください。）"},
+    {word:"damage",pron:"/ˈdæmɪdʒ/",pos:"名詞",answer:"損害・ダメージ",ex:"Report any <em>damage</em>.（損害をすぐに報告してください。）"},
+    {word:"deadline",pron:"/ˈdɛdlaɪn/",pos:"名詞",answer:"締め切り",ex:"Don't miss the <em>deadline</em>.（締め切りを逃さないでください。）"},
+    {word:"demonstrate",pron:"/ˈdɛmənstreɪt/",pos:"動詞",answer:"実演する・示す",ex:"<em>Demonstrate</em> your skills.（スキルを実演してください。）"},
+    {word:"depend",pron:"/dɪˈpɛnd/",pos:"動詞",answer:"依存する",ex:"Results <em>depend</em> on effort.（結果は努力次第です。）"},
+    {word:"description",pron:"/dɪˈskrɪpʃn/",pos:"名詞",answer:"説明・記述",ex:"Read the job <em>description</em>.（職務内容の説明を読んでください。）"},
+    {word:"distribute",pron:"/dɪˈstrɪbjuːt/",pos:"動詞",answer:"配布する・流通させる",ex:"<em>Distribute</em> the handouts.（資料を配布してください。）"},
+    {word:"division",pron:"/dɪˈvɪʒn/",pos:"名詞",answer:"部門・事業部",ex:"She works in the sales <em>division</em>.（彼女は営業部門で働いています。）"},
+    {word:"double",pron:"/ˈdʌbl/",pos:"動詞/形容詞",answer:"2倍にする・ダブルの",ex:"Sales <em>doubled</em> this year.（今年売上が2倍になりました。）"},
+    {word:"draft",pron:"/drɑːft/",pos:"名詞",answer:"草稿・ドラフト",ex:"Send me the first <em>draft</em>.（最初のドラフトを送ってください。）"},
+    {word:"due",pron:"/djuː/",pos:"形容詞",answer:"期限の来た",ex:"The report is <em>due</em> tomorrow.（報告書は明日が期限です。）"},
+    {word:"enhance",pron:"/ɪnˈhæns/",pos:"動詞",answer:"向上させる",ex:"<em>Enhance</em> customer experience.（顧客体験を向上させてください。）"},
+    {word:"environment",pron:"/ɪnˈvaɪrənmənt/",pos:"名詞",answer:"環境",ex:"Work in a good <em>environment</em>.（良い環境で働く。）"},
+    {word:"establish",pron:"/ɪˈstæblɪʃ/",pos:"動詞",answer:"設立する・確立する",ex:"<em>Establish</em> new guidelines.（新しいガイドラインを確立してください。）"},
+    {word:"evaluate",pron:"/ɪˈvæljueɪt/",pos:"動詞",answer:"評価する",ex:"<em>Evaluate</em> the performance.（パフォーマンスを評価してください。）"},
+    {word:"eventually",pron:"/ɪˈvɛntʃuəli/",pos:"副詞",answer:"最終的に",ex:"He <em>eventually</em> got the job.（彼は最終的に仕事を得ました。）"},
+    {word:"evidence",pron:"/ˈɛvɪdəns/",pos:"名詞",answer:"証拠",ex:"Provide <em>evidence</em> of payment.（支払いの証拠を提出してください。）"},
+    {word:"exceed",pron:"/ɪkˈsiːd/",pos:"動詞",answer:"超える",ex:"Don't <em>exceed</em> the limit.（限度を超えないでください。）"},
+    {word:"expertise",pron:"/ˌɛkspɜːrˈtiːz/",pos:"名詞",answer:"専門知識",ex:"She has <em>expertise</em> in marketing.（彼女はマーケティングの専門知識があります。）"},
+    {word:"fair",pron:"/fɛər/",pos:"名詞",answer:"見本市・展示会",ex:"Visit the trade <em>fair</em>.（展示会に参加してください。）"},
+    {word:"figure",pron:"/ˈfɪɡər/",pos:"名詞",answer:"数字・図",ex:"Check the sales <em>figures</em>.（売上の数字を確認してください。）"},
+    {word:"format",pron:"/ˈfɔːrmæt/",pos:"名詞",answer:"形式・フォーマット",ex:"Use the correct <em>format</em>.（正しい形式を使ってください。）"},
+    {word:"foundation",pron:"/faʊnˈdeɪʃn/",pos:"名詞",answer:"基礎・財団",ex:"Build a strong <em>foundation</em>.（強固な基盤を築いてください。）"},
+    {word:"frequent",pron:"/ˈfriːkwənt/",pos:"形容詞",answer:"頻繁な",ex:"Make <em>frequent</em> updates.（頻繁に更新してください。）"},
+    {word:"fulfill",pron:"/fʊlˈfɪl/",pos:"動詞",answer:"履行する・満たす",ex:"<em>Fulfill</em> your obligations.（義務を果たしてください。）"},
+    {word:"generate",pron:"/ˈdʒɛnəreɪt/",pos:"動詞",answer:"生み出す",ex:"<em>Generate</em> new leads.（新しいリードを生み出してください。）"},
+    {word:"guideline",pron:"/ˈɡaɪdlaɪn/",pos:"名詞",answer:"ガイドライン",ex:"Follow the <em>guidelines</em>.（ガイドラインに従ってください。）"},
+    {word:"highlight",pron:"/ˈhaɪlaɪt/",pos:"動詞",answer:"強調する・ハイライトする",ex:"<em>Highlight</em> the key points.（重要なポイントを強調してください。）"},
+    {word:"identify",pron:"/aɪˈdɛntɪfaɪ/",pos:"動詞",answer:"特定する",ex:"<em>Identify</em> the problem.（問題を特定してください。）"},
+    {word:"immediate",pron:"/ɪˈmiːdiɪt/",pos:"形容詞",answer:"即座の",ex:"Take <em>immediate</em> action.（即座に行動してください。）"},
+    {word:"indicate",pron:"/ˈɪndɪkeɪt/",pos:"動詞",answer:"示す",ex:"Please <em>indicate</em> your preference.（ご希望を示してください。）"},
+    {word:"individual",pron:"/ˌɪndɪˈvɪdʒuəl/",pos:"名詞",answer:"個人",ex:"Each <em>individual</em> has a role.（各個人が役割を持っています。）"},
+    {word:"initiative",pron:"/ɪˈnɪʃɪɪtɪv/",pos:"名詞",answer:"主導権・取り組み",ex:"Take the <em>initiative</em>.（主導権を取ってください。）"},
+    {word:"inspection",pron:"/ɪnˈspɛkʃn/",pos:"名詞",answer:"検査",ex:"Pass the <em>inspection</em>.（検査に合格してください。）"},
+    {word:"install",pron:"/ɪnˈstɔːl/",pos:"動詞",answer:"設置する・インストールする",ex:"<em>Install</em> the new software.（新しいソフトウェアをインストールしてください。）"},
+    {word:"instruction",pron:"/ɪnˈstrʌkʃn/",pos:"名詞",answer:"指示・説明書",ex:"Follow the <em>instructions</em>.（指示に従ってください。）"},
+    {word:"insurance",pron:"/ɪnˈʃʊərəns/",pos:"名詞",answer:"保険",ex:"Get travel <em>insurance</em>.（旅行保険に加入してください。）"},
+    {word:"interest",pron:"/ˈɪntrɪst/",pos:"名詞",answer:"利子・興味",ex:"Earn <em>interest</em> on savings.（貯蓄で利子を得る。）"},
+    {word:"internal",pron:"/ɪnˈtɜːrnl/",pos:"形容詞",answer:"内部の",ex:"This is an <em>internal</em> document.（これは内部書類です。）"},
+    {word:"introduce",pron:"/ˌɪntrəˈdjuːs/",pos:"動詞",answer:"紹介する・導入する",ex:"Let me <em>introduce</em> the new member.（新しいメンバーを紹介させてください。）"},
+    {word:"invest",pron:"/ɪnˈvɛst/",pos:"動詞",answer:"投資する",ex:"<em>Invest</em> in training.（研修に投資してください。）"},
+    {word:"justify",pron:"/ˈdʒʌstɪfaɪ/",pos:"動詞",answer:"正当化する",ex:"<em>Justify</em> the extra cost.（追加費用を正当化してください。）"},
+    {word:"labor",pron:"/ˈleɪbər/",pos:"名詞",answer:"労働力",ex:"Skilled <em>labor</em> is needed.（熟練した労働力が必要です。）"},
+    {word:"launch",pron:"/lɔːntʃ/",pos:"名詞",answer:"発売・開始",ex:"The product <em>launch</em> was a success.（製品の発売は成功しました。）"},
+    {word:"leadership",pron:"/ˈliːdərʃɪp/",pos:"名詞",answer:"リーダーシップ",ex:"Show strong <em>leadership</em>.（強いリーダーシップを発揮してください。）"},
+    {word:"log",pron:"/lɒɡ/",pos:"名詞/動詞",answer:"ログ・記録する",ex:"Check the activity <em>log</em>.（アクティビティログを確認してください。）"},
+    {word:"loyalty",pron:"/ˈlɔɪəlti/",pos:"名詞",answer:"忠誠心・ロイヤリティ",ex:"Build customer <em>loyalty</em>.（顧客ロイヤリティを築いてください。）"},
+    {word:"manual",pron:"/ˈmænjuəl/",pos:"名詞",answer:"マニュアル・説明書",ex:"Read the <em>manual</em> first.（まずマニュアルを読んでください。）"},
+    {word:"margin",pron:"/ˈmɑːrdʒɪn/",pos:"名詞",answer:"利益幅・マージン",ex:"Increase the profit <em>margin</em>.（利益幅を増やしてください。）"},
+    {word:"match",pron:"/mætʃ/",pos:"動詞",answer:"一致する・合わせる",ex:"<em>Match</em> the invoice to the order.（請求書を注文と照合してください。）"},
+    {word:"maximize",pron:"/ˈmæksɪmaɪz/",pos:"動詞",answer:"最大化する",ex:"<em>Maximize</em> efficiency.（効率を最大化してください。）"},
+    {word:"media",pron:"/ˈmiːdiə/",pos:"名詞",answer:"メディア・媒体",ex:"Use social <em>media</em>.（ソーシャルメディアを活用してください。）"},
+    {word:"meeting",pron:"/ˈmiːtɪŋ/",pos:"名詞",answer:"打ち合わせ",ex:"Schedule a <em>meeting</em>.（打ち合わせをスケジュールしてください。）"},
+    {word:"minimize",pron:"/ˈmɪnɪmaɪz/",pos:"動詞",answer:"最小化する",ex:"<em>Minimize</em> costs.（コストを最小化してください。）"},
+    {word:"mission",pron:"/ˈmɪʃn/",pos:"名詞",answer:"使命・ミッション",ex:"Our <em>mission</em> is to serve customers.（私たちの使命は顧客に奉仕することです。）"},
+    {word:"modify",pron:"/ˈmɒdɪfaɪ/",pos:"動詞",answer:"修正する・変更する",ex:"Please <em>modify</em> the document.（書類を修正してください。）"},
+    {word:"monitor",pron:"/ˈmɒnɪtər/",pos:"動詞",answer:"監視する",ex:"<em>Monitor</em> the progress daily.（進捗を毎日監視してください。）"},
+    {word:"motivated",pron:"/ˈmoʊtɪveɪtɪd/",pos:"形容詞",answer:"やる気のある",ex:"Stay <em>motivated</em>.（やる気を保ってください。）"},
+    {word:"negotiate",pron:"/nɪˈɡoʊʃieɪt/",pos:"動詞",answer:"交渉する",ex:"<em>Negotiate</em> the terms.（条件を交渉してください。）"},
+    {word:"notify",pron:"/ˈnoʊtɪfaɪ/",pos:"動詞",answer:"通知する",ex:"Please <em>notify</em> us immediately.（すぐにお知らせください。）"},
+    {word:"obtain",pron:"/əbˈteɪn/",pos:"動詞",answer:"取得する",ex:"<em>Obtain</em> approval first.（まず承認を取得してください。）"},
+    {word:"organize",pron:"/ˈɔːrɡənaɪz/",pos:"動詞",answer:"企画する",ex:"<em>Organize</em> a training session.（研修セッションを企画してください。）"},
+    {word:"outline",pron:"/ˈaʊtlaɪn/",pos:"名詞",answer:"概要・アウトライン",ex:"Write an <em>outline</em> first.（まず概要を書いてください。）"},
+    {word:"overdue",pron:"/ˌoʊvərˈdjuː/",pos:"形容詞",answer:"期限超過の",ex:"The invoice is <em>overdue</em>.（請求書が期限超過です。）"},
+    {word:"overview",pron:"/ˈoʊvərvjuː/",pos:"名詞",answer:"概要",ex:"Give an <em>overview</em> of the project.（プロジェクトの概要を説明してください。）"},
+    {word:"participate",pron:"/pɑːrˈtɪsɪpeɪt/",pos:"動詞",answer:"参加する",ex:"Please <em>participate</em> actively.（積極的に参加してください。）"},
+    {word:"password",pron:"/ˈpæswɜːrd/",pos:"名詞",answer:"パスワード",ex:"Change your <em>password</em> regularly.（定期的にパスワードを変更してください。）"},
+    {word:"pause",pron:"/pɔːz/",pos:"動詞",answer:"一時停止する",ex:"<em>Pause</em> the process.（プロセスを一時停止してください。）"},
+    {word:"performance",pron:"/pərˈfɔːrməns/",pos:"名詞",answer:"パフォーマンス・業績",ex:"Improve your <em>performance</em>.（パフォーマンスを改善してください。）"},
+    {word:"place",pron:"/pleɪs/",pos:"動詞",answer:"置く・発注する",ex:"<em>Place</em> an order online.（オンラインで注文してください。）"},
+    {word:"platform",pron:"/ˈplætfɔːrm/",pos:"名詞",answer:"プラットフォーム",ex:"Use our digital <em>platform</em>.（当社のデジタルプラットフォームをご利用ください。）"},
+    {word:"positive",pron:"/ˈpɒzɪtɪv/",pos:"形容詞",answer:"前向きな・肯定的な",ex:"Give <em>positive</em> feedback.（前向きなフィードバックをしてください。）"},
+    {word:"postpone",pron:"/pəˈspoʊn/",pos:"動詞",answer:"延期する",ex:"We need to <em>postpone</em> the meeting.（会議を延期する必要があります。）"},
+    {word:"premium",pron:"/ˈpriːmiəm/",pos:"形容詞",answer:"プレミアムな・高品質な",ex:"Choose the <em>premium</em> plan.（プレミアムプランを選んでください。）"},
+    {word:"presentation",pron:"/ˌprɛzənˈteɪʃn/",pos:"名詞",answer:"プレゼンテーション",ex:"Give a <em>presentation</em>.（プレゼンテーションをしてください。）"},
+    {word:"prevent",pron:"/prɪˈvɛnt/",pos:"動詞",answer:"防ぐ",ex:"<em>Prevent</em> errors in advance.（エラーを事前に防いでください。）"},
+    {word:"print",pron:"/prɪnt/",pos:"動詞",answer:"印刷する",ex:"Please <em>print</em> the form.（フォームを印刷してください。）"},
+    {word:"productive",pron:"/prəˈdʌktɪv/",pos:"形容詞",answer:"生産的な",ex:"Have a <em>productive</em> day.（生産的な1日を過ごしてください。）"},
+    {word:"profile",pron:"/ˈproʊfaɪl/",pos:"名詞",answer:"プロフィール",ex:"Update your <em>profile</em>.（プロフィールを更新してください。）"},
+    {word:"qualification",pron:"/ˌkwɒlɪfɪˈkeɪʃn/",pos:"名詞",answer:"資格・資質",ex:"What are the <em>qualifications</em>?（資格要件は何ですか？）"},
+    {word:"query",pron:"/ˈkwɪəri/",pos:"名詞",answer:"問い合わせ・質問",ex:"Send your <em>query</em> by email.（メールでお問い合わせください。）"},
+    {word:"quota",pron:"/ˈkwoʊtə/",pos:"名詞",answer:"割当量・ノルマ",ex:"Meet the sales <em>quota</em>.（販売ノルマを達成してください。）"},
+    {word:"recommendation",pron:"/ˌrɛkəmɛnˈdeɪʃn/",pos:"名詞",answer:"推薦・勧め",ex:"Write a <em>recommendation</em> letter.（推薦状を書いてください。）"},
+    {word:"regulation",pron:"/ˌrɛɡjuˈleɪʃn/",pos:"名詞",answer:"規制・規則",ex:"Follow the <em>regulations</em>.（規制に従ってください。）"},
+    {word:"relationship",pron:"/rɪˈleɪʃnʃɪp/",pos:"名詞",answer:"関係",ex:"Build a good <em>relationship</em>.（良い関係を構築してください。）"},
+    {word:"release",pron:"/rɪˈliːs/",pos:"動詞/名詞",answer:"リリースする・発表",ex:"<em>Release</em> the new version.（新バージョンをリリースしてください。）"},
+    {word:"renewable",pron:"/rɪˈnjuːəbl/",pos:"形容詞",answer:"更新可能な",ex:"Use <em>renewable</em> energy.（再生可能エネルギーを使ってください。）"},
+    {word:"representative",pron:"/ˌrɛprɪˈzɛntətɪv/",pos:"名詞",answer:"担当者・代表",ex:"Contact a sales <em>representative</em>.（営業担当者に連絡してください。）"},
+    {word:"reputation",pron:"/ˌrɛpjuˈteɪʃn/",pos:"名詞",answer:"評判",ex:"Protect the company's <em>reputation</em>.（会社の評判を守ってください。）"},
+    {word:"reschedule",pron:"/riːˈʃɛdjuːl/",pos:"動詞",answer:"予定を変更する",ex:"We need to <em>reschedule</em>.（予定を変更する必要があります。）"},
+    {word:"resource",pron:"/ˈriːsɔːrs/",pos:"名詞",answer:"リソース・資源",ex:"Allocate <em>resources</em> carefully.（リソースを慎重に割り当ててください。）"},
+    {word:"reward",pron:"/rɪˈwɔːrd/",pos:"名詞",answer:"報酬・ご褒美",ex:"Offer a <em>reward</em>.（報酬を提供してください。）"},
+    {word:"safety",pron:"/ˈseɪfti/",pos:"名詞",answer:"安全",ex:"Prioritize <em>safety</em>.（安全を優先してください。）"},
+    {word:"salary",pron:"/ˈsæləri/",pos:"名詞",answer:"給与",ex:"Negotiate your <em>salary</em>.（給与を交渉してください。）"},
+    {word:"satisfy",pron:"/ˈsætɪsfaɪ/",pos:"動詞",answer:"満足させる",ex:"<em>Satisfy</em> all requirements.（すべての要件を満たしてください。）"},
+    {word:"schedule",pron:"/ˈʃɛdjuːl/",pos:"動詞",answer:"スケジュールを組む",ex:"<em>Schedule</em> the appointment.（予約を入れてください。）"},
+    {word:"secure",pron:"/sɪˈkjʊər/",pos:"動詞/形容詞",answer:"確保する・安全な",ex:"<em>Secure</em> the contract.（契約を確保してください。）"},
+    {word:"segment",pron:"/ˈsɛɡmənt/",pos:"名詞",answer:"セグメント・部分",ex:"Target a specific <em>segment</em>.（特定のセグメントをターゲットにしてください。）"},
+    {word:"seminar",pron:"/ˈsɛmɪnɑːr/",pos:"名詞",answer:"セミナー",ex:"Attend the <em>seminar</em>.（セミナーに参加してください。）"},
+    {word:"senior",pron:"/ˈsiːniər/",pos:"形容詞",answer:"上級の・シニアの",ex:"Report to the <em>senior</em> manager.（上級マネージャーに報告してください。）"},
+    {word:"significant",pron:"/sɪɡˈnɪfɪkənt/",pos:"形容詞",answer:"重要な・大幅な",ex:"There is a <em>significant</em> difference.（大幅な違いがあります。）"},
+    {word:"software",pron:"/ˈsɒftweər/",pos:"名詞",answer:"ソフトウェア",ex:"Update the <em>software</em>.（ソフトウェアを更新してください。）"},
+    {word:"strategy",pron:"/ˈstræt̬ədʒi/",pos:"名詞",answer:"戦略",ex:"Plan a marketing <em>strategy</em>.（マーケティング戦略を立ててください。）"},
+    {word:"strengthen",pron:"/ˈstrɛŋθən/",pos:"動詞",answer:"強化する",ex:"<em>Strengthen</em> team communication.（チームのコミュニケーションを強化してください。）"},
+    {word:"structure",pron:"/ˈstrʌktʃər/",pos:"名詞",answer:"構造・組織",ex:"Explain the <em>structure</em>.（構造を説明してください。）"},
+    {word:"succeed",pron:"/səkˈsiːd/",pos:"動詞",answer:"成功する",ex:"Work hard to <em>succeed</em>.（成功するために一生懸命働いてください。）"},
+    {word:"sufficient",pron:"/səˈfɪʃnt/",pos:"形容詞",answer:"十分な",ex:"Is there <em>sufficient</em> time?（十分な時間がありますか？）"},
+    {word:"supplier",pron:"/səˈplaɪər/",pos:"名詞",answer:"サプライヤー・供給業者",ex:"Find a reliable <em>supplier</em>.（信頼できるサプライヤーを見つけてください。）"},
+    {word:"sustainable",pron:"/səˈsteɪnəbl/",pos:"形容詞",answer:"持続可能な",ex:"Build a <em>sustainable</em> business.（持続可能なビジネスを構築してください。）"},
+    {word:"timeline",pron:"/ˈtaɪmlaɪn/",pos:"名詞",answer:"タイムライン・期日",ex:"Create a project <em>timeline</em>.（プロジェクトのタイムラインを作成してください。）"},
+    {word:"track",pron:"/træk/",pos:"動詞",answer:"追跡する",ex:"<em>Track</em> your spending.（支出を追跡してください。）"},
+    {word:"training",pron:"/ˈtreɪnɪŋ/",pos:"名詞",answer:"研修・トレーニング",ex:"Complete the <em>training</em>.（研修を完了してください。）"},
+    {word:"transparency",pron:"/trænsˈpærənsi/",pos:"名詞",answer:"透明性",ex:"We value <em>transparency</em>.（私たちは透明性を重視します。）"},
+    {word:"turnover",pron:"/ˈtɜːrnoʊvər/",pos:"名詞",answer:"売上高・離職率",ex:"High staff <em>turnover</em> is a problem.（高い離職率が問題です。）"},
+    {word:"upgrade",pron:"/ˈʌpɡreɪd/",pos:"動詞",answer:"アップグレードする",ex:"<em>Upgrade</em> the system.（システムをアップグレードしてください。）"},
+    {word:"upload",pron:"/ˈʌploʊd/",pos:"動詞",answer:"アップロードする",ex:"Please <em>upload</em> your resume.（履歴書をアップロードしてください。）"},
+    {word:"utilize",pron:"/ˈjuːtɪlaɪz/",pos:"動詞",answer:"活用する",ex:"<em>Utilize</em> all available resources.（利用可能なリソースをすべて活用してください。）"},
+    {word:"vision",pron:"/ˈvɪʒn/",pos:"名詞",answer:"ビジョン・目標",ex:"Share your company <em>vision</em>.（会社のビジョンを共有してください。）"},
+    {word:"volume",pron:"/ˈvɒljuːm/",pos:"名詞",answer:"量・ボリューム",ex:"Increase the <em>volume</em> of orders.（注文量を増やしてください。）"},
+    {word:"voucher",pron:"/ˈvaʊtʃər/",pos:"名詞",answer:"バウチャー・引換券",ex:"Use a <em>voucher</em> for a discount.（割引にバウチャーを使ってください。）"},
+    {word:"waste",pron:"/weɪst/",pos:"名詞",answer:"無駄・廃棄物",ex:"Reduce <em>waste</em> in the office.（オフィスの無駄を減らしてください。）"},
+    {word:"wealth",pron:"/wɛlθ/",pos:"名詞",answer:"富・財産",ex:"Build long-term <em>wealth</em>.（長期的な資産を築いてください。）"},
+    {word:"withdraw",pron:"/wɪðˈdrɔː/",pos:"動詞",answer:"引き出す・撤回する",ex:"<em>Withdraw</em> cash from the ATM.（ATMから現金を引き出してください。）"},
+    {word:"workload",pron:"/ˈwɜːrkloʊd/",pos:"名詞",answer:"仕事量",ex:"Manage your <em>workload</em>.（仕事量を管理してください。）"},
   ],
   intermediate: [
     { word: "negotiate",   pron: "/nɪˈɡoʊʃieɪt/",  pos: "動詞",   answer: "交渉する",         choices: ["交渉する","拒否する","承認する","提案する"],       ex: "We will <em>negotiate</em> the contract. （契約を交渉します。）" },
@@ -561,6 +1128,169 @@ const WORDS = {
     { word: "conduct",     pron: "/kənˈdʌkt/",      pos: "動詞",   answer: "実施する・行う",   choices: ["実施する・行う","妨げる","拒絶する","修正する"],   ex: "We will <em>conduct</em> a survey. （アンケートを実施します。）" },
     { word: "merchant",    pron: "/ˈmɜːrtʃənt/",    pos: "名詞",   answer: "商人・販売業者",   choices: ["商人・販売業者","銀行員","顧問","会計士"],         ex: "The <em>merchant</em> sells organic food. （その商人はオーガニック食品を販売しています。）" },
     { word: "substantial", pron: "/səbˈstænʃl/",    pos: "形容詞", answer: "かなりの・相当な", choices: ["かなりの・相当な","わずかな","普通の","不明確な"],  ex: "There was a <em>substantial</em> increase. （かなりの増加がありました。）" },
+    {word:"accelerate",pron:"/əkˈsɛləreɪt/",pos:"動詞",answer:"加速する",ex:"<em>Accelerate</em> the growth plan.（成長計画を加速させてください。）"},
+    {word:"accountability",pron:"/əˌkaʊntəˈbɪlɪti/",pos:"名詞",answer:"説明責任",ex:"Show <em>accountability</em> for results.（結果に対する説明責任を示してください。）"},
+    {word:"accumulate",pron:"/əˈkjuːmjuleɪt/",pos:"動詞",answer:"蓄積する",ex:"<em>Accumulate</em> data over time.（データを時間をかけて蓄積してください。）"},
+    {word:"acknowledge",pron:"/əkˈnɒlɪdʒ/",pos:"動詞",answer:"認める・認識する",ex:"Please <em>acknowledge</em> receipt.（受取の確認をお願いします。）"},
+    {word:"acquisition",pron:"/ˌækwɪˈzɪʃn/",pos:"名詞",answer:"買収・習得",ex:"The <em>acquisition</em> was completed.（買収が完了しました。）"},
+    {word:"administer",pron:"/ədˈmɪnɪstər/",pos:"動詞",answer:"管理する・運営する",ex:"<em>Administer</em> the program.（プログラムを運営してください。）"},
+    {word:"aggregate",pron:"/ˈæɡrɪɡɪt/",pos:"形容詞",answer:"合計の・集合した",ex:"The <em>aggregate</em> sales rose.（合計売上が上がりました。）"},
+    {word:"alliance",pron:"/əˈlaɪəns/",pos:"名詞",answer:"提携・同盟",ex:"Form a strategic <em>alliance</em>.（戦略的提携を結んでください。）"},
+    {word:"allocate",pron:"/ˈæləkeɪt/",pos:"動詞",answer:"配分する",ex:"<em>Allocate</em> resources efficiently.（リソースを効率的に配分してください。）"},
+    {word:"amendment",pron:"/əˈmɛndmənt/",pos:"名詞",answer:"修正・改正",ex:"Propose an <em>amendment</em>.（修正案を提出してください。）"},
+    {word:"anticipate",pron:"/ænˈtɪsɪpeɪt/",pos:"動詞",answer:"予測する・見越す",ex:"<em>Anticipate</em> customer needs.（顧客ニーズを予測してください。）"},
+    {word:"apparatus",pron:"/ˌæpəˈreɪtəs/",pos:"名詞",answer:"装置・機器",ex:"Operate the <em>apparatus</em> safely.（装置を安全に操作してください。）"},
+    {word:"arbitration",pron:"/ˌɑːrbɪˈtreɪʃn/",pos:"名詞",answer:"仲裁",ex:"Resolve by <em>arbitration</em>.（仲裁で解決してください。）"},
+    {word:"articulate",pron:"/ɑːrˈtɪkjuleɪt/",pos:"動詞",answer:"明確に述べる",ex:"<em>Articulate</em> your goals clearly.（目標を明確に述べてください。）"},
+    {word:"assemble",pron:"/əˈsɛmbl/",pos:"動詞",answer:"組み立てる・集める",ex:"<em>Assemble</em> the team.（チームを集めてください。）"},
+    {word:"audit",pron:"/ˈɔːdɪt/",pos:"名詞",answer:"監査",ex:"Conduct an annual <em>audit</em>.（年次監査を実施してください。）"},
+    {word:"authorize",pron:"/ˈɔːθəraɪz/",pos:"動詞",answer:"承認する・権限を与える",ex:"Please <em>authorize</em> the payment.（支払いを承認してください。）"},
+    {word:"benchmark",pron:"/ˈbɛntʃmɑːrk/",pos:"名詞",answer:"基準・ベンチマーク",ex:"Set a performance <em>benchmark</em>.（業績のベンチマークを設定してください。）"},
+    {word:"bilateral",pron:"/baɪˈlætərəl/",pos:"形容詞",answer:"双方向の・二国間の",ex:"Sign a <em>bilateral</em> agreement.（二国間協定を締結してください。）"},
+    {word:"breach",pron:"/briːtʃ/",pos:"名詞",answer:"違反・侵害",ex:"Report any <em>breach</em> of contract.（契約違反を報告してください。）"},
+    {word:"brief",pron:"/briːf/",pos:"動詞",answer:"説明する・要点を伝える",ex:"Please <em>brief</em> the team.（チームに要点を説明してください。）"},
+    {word:"bureaucracy",pron:"/bjʊəˈrɒkrəsi/",pos:"名詞",answer:"官僚制・お役所仕事",ex:"Reduce <em>bureaucracy</em>.（官僚制を減らしてください。）"},
+    {word:"capital",pron:"/ˈkæpɪtl/",pos:"名詞",answer:"資本金",ex:"Raise <em>capital</em> for expansion.（拡大のために資本金を調達してください。）"},
+    {word:"clause",pron:"/klɔːz/",pos:"名詞",answer:"条項・条文",ex:"Add a penalty <em>clause</em>.（罰則条項を追加してください。）"},
+    {word:"collaborate",pron:"/kəˈlæbəreɪt/",pos:"動詞",answer:"協力する・共同作業する",ex:"<em>Collaborate</em> with the design team.（デザインチームと協力してください。）"},
+    {word:"commission",pron:"/kəˈmɪʃn/",pos:"名詞",answer:"手数料・委員会",ex:"Earn a sales <em>commission</em>.（営業手数料を得る。）"},
+    {word:"commodity",pron:"/kəˈmɒdɪti/",pos:"名詞",answer:"商品・原材料",ex:"Trade <em>commodities</em> globally.（商品を世界的に取引する。）"},
+    {word:"compliance",pron:"/kəmˈplaɪəns/",pos:"名詞",answer:"法令遵守",ex:"Ensure regulatory <em>compliance</em>.（規制遵守を確保してください。）"},
+    {word:"comprehensive",pron:"/ˌkɒmprɪˈhɛnsɪv/",pos:"形容詞",answer:"包括的な",ex:"Prepare a <em>comprehensive</em> report.（包括的な報告書を準備してください。）"},
+    {word:"consensus",pron:"/kənˈsɛnsəs/",pos:"名詞",answer:"合意・コンセンサス",ex:"Reach a <em>consensus</em>.（合意に達してください。）"},
+    {word:"consolidate",pron:"/kənˈsɒlɪdeɪt/",pos:"動詞",answer:"統合する・強固にする",ex:"<em>Consolidate</em> the two departments.（2つの部門を統合してください。）"},
+    {word:"contractor",pron:"/ˈkɒntræktər/",pos:"名詞",answer:"請負業者",ex:"Hire a reliable <em>contractor</em>.（信頼できる請負業者を雇ってください。）"},
+    {word:"controversy",pron:"/ˈkɒntrəvɜːrsi/",pos:"名詞",answer:"論争・議論",ex:"Avoid public <em>controversy</em>.（公の論争を避けてください。）"},
+    {word:"convene",pron:"/kənˈviːn/",pos:"動詞",answer:"召集する",ex:"<em>Convene</em> a special meeting.（特別会議を召集してください。）"},
+    {word:"copyrighted",pron:"/ˈkɒpɪraɪtɪd/",pos:"形容詞",answer:"著作権のある",ex:"Use only non-<em>copyrighted</em> images.（著作権のない画像のみ使用してください。）"},
+    {word:"corporate",pron:"/ˈkɔːrpərɪt/",pos:"形容詞",answer:"企業の",ex:"Develop <em>corporate</em> culture.（企業文化を育ててください。）"},
+    {word:"counterpart",pron:"/ˈkaʊntərpɑːrt/",pos:"名詞",answer:"対応する人・相手方",ex:"Meet with your <em>counterpart</em>.（相手方と会ってください。）"},
+    {word:"credential",pron:"/krɪˈdɛnʃl/",pos:"名詞",answer:"資格・証明書",ex:"Verify the <em>credentials</em>.（資格を確認してください。）"},
+    {word:"customize",pron:"/ˈkʌstəmaɪz/",pos:"動詞",answer:"カスタマイズする",ex:"<em>Customize</em> the proposal.（提案書をカスタマイズしてください。）"},
+    {word:"decline",pron:"/dɪˈklaɪn/",pos:"動詞",answer:"断る・減少する",ex:"Sales <em>declined</em> sharply.（売上が急激に減少しました。）"},
+    {word:"delegate",pron:"/ˈdɛlɪɡeɪt/",pos:"動詞",answer:"委任する",ex:"<em>Delegate</em> tasks to your team.（チームにタスクを委任してください。）"},
+    {word:"depreciation",pron:"/dɪˌpriːʃiˈeɪʃn/",pos:"名詞",answer:"減価償却",ex:"Calculate the <em>depreciation</em>.（減価償却を計算してください。）"},
+    {word:"designate",pron:"/ˈdɛzɪɡneɪt/",pos:"動詞",answer:"指定する・任命する",ex:"<em>Designate</em> a team leader.（チームリーダーを任命してください。）"},
+    {word:"differentiate",pron:"/ˌdɪfəˈrɛnʃieɪt/",pos:"動詞",answer:"差別化する",ex:"<em>Differentiate</em> your product.（製品を差別化してください。）"},
+    {word:"diligent",pron:"/ˈdɪlɪdʒənt/",pos:"形容詞",answer:"勤勉な",ex:"She is a <em>diligent</em> worker.（彼女は勤勉な労働者です。）"},
+    {word:"directive",pron:"/dɪˈrɛktɪv/",pos:"名詞",answer:"指令・指示",ex:"Follow the new <em>directive</em>.（新しい指令に従ってください。）"},
+    {word:"disclose",pron:"/dɪˈskloʊz/",pos:"動詞",answer:"開示する",ex:"<em>Disclose</em> all relevant information.（関連情報をすべて開示してください。）"},
+    {word:"discretion",pron:"/dɪˈskrɛʃn/",pos:"名詞",answer:"裁量",ex:"Use your <em>discretion</em>.（裁量を使ってください。）"},
+    {word:"dispute",pron:"/dɪˈspjuːt/",pos:"名詞",answer:"紛争・論争",ex:"Resolve the <em>dispute</em> quickly.（紛争を早く解決してください。）"},
+    {word:"distinguish",pron:"/dɪˈstɪŋɡwɪʃ/",pos:"動詞",answer:"区別する",ex:"<em>Distinguish</em> between the two options.（2つの選択肢を区別してください。）"},
+    {word:"diversify",pron:"/daɪˈvɜːrsɪfaɪ/",pos:"動詞",answer:"多様化する",ex:"<em>Diversify</em> your investment.（投資を多様化してください。）"},
+    {word:"dividend",pron:"/ˈdɪvɪdɛnd/",pos:"名詞",answer:"配当金",ex:"Pay a <em>dividend</em> to shareholders.（株主に配当金を支払う。）"},
+    {word:"dominate",pron:"/ˈdɒmɪneɪt/",pos:"動詞",answer:"支配する・圧倒する",ex:"<em>Dominate</em> the market.（市場を支配してください。）"},
+    {word:"downsize",pron:"/ˈdaʊnsaɪz/",pos:"動詞",answer:"規模を縮小する",ex:"The company will <em>downsize</em>.（会社は規模を縮小します。）"},
+    {word:"draft",pron:"/drɑːft/",pos:"動詞",answer:"草案を作る",ex:"<em>Draft</em> the contract.（契約書の草案を作ってください。）"},
+    {word:"elaborate",pron:"/ɪˈlæbərɪt/",pos:"形容詞",answer:"詳細な・入念な",ex:"Provide an <em>elaborate</em> explanation.（詳細な説明を提供してください。）"},
+    {word:"eliminate",pron:"/ɪˈlɪmɪneɪt/",pos:"動詞",answer:"排除する",ex:"<em>Eliminate</em> unnecessary steps.（不要なステップを排除してください。）"},
+    {word:"emerging",pron:"/ɪˈmɜːrdʒɪŋ/",pos:"形容詞",answer:"新興の",ex:"Focus on <em>emerging</em> markets.（新興市場に注力してください。）"},
+    {word:"enforce",pron:"/ɪnˈfɔːrs/",pos:"動詞",answer:"施行する・強制する",ex:"<em>Enforce</em> company policy.（会社の方針を施行してください。）"},
+    {word:"enterprise",pron:"/ˈɛntərpraɪz/",pos:"名詞",answer:"企業・事業",ex:"Launch a new <em>enterprise</em>.（新しい事業を立ち上げてください。）"},
+    {word:"equity",pron:"/ˈɛkwɪti/",pos:"名詞",answer:"株式・公平",ex:"Buy company <em>equity</em>.（会社の株式を購入してください。）"},
+    {word:"escalate",pron:"/ˈɛskəleɪt/",pos:"動詞",answer:"エスカレートさせる",ex:"<em>Escalate</em> the issue to management.（問題を経営陣にエスカレートしてください。）"},
+    {word:"ethics",pron:"/ˈɛθɪks/",pos:"名詞",answer:"倫理",ex:"Maintain business <em>ethics</em>.（ビジネス倫理を維持してください。）"},
+    {word:"execute",pron:"/ˈɛksɪkjuːt/",pos:"動詞",answer:"実行する",ex:"<em>Execute</em> the plan smoothly.（計画をスムーズに実行してください。）"},
+    {word:"exempt",pron:"/ɪɡˈzɛmpt/",pos:"形容詞",answer:"免除された",ex:"This fee is <em>exempt</em>.（この料金は免除されています。）"},
+    {word:"expansion",pron:"/ɪkˈspænʃn/",pos:"名詞",answer:"拡大・拡張",ex:"Plan for market <em>expansion</em>.（市場拡大を計画してください。）"},
+    {word:"expedite",pron:"/ˈɛkspɪdaɪt/",pos:"動詞",answer:"急がせる・迅速に処理する",ex:"Please <em>expedite</em> the order.（注文を迅速に処理してください。）"},
+    {word:"expenditure",pron:"/ɪkˈspɛndɪtʃər/",pos:"名詞",answer:"支出",ex:"Reduce <em>expenditure</em>.（支出を減らしてください。）"},
+    {word:"expertise",pron:"/ˌɛkspɜːrˈtiːz/",pos:"名詞",answer:"専門技術",ex:"Apply your <em>expertise</em>.（専門技術を活かしてください。）"},
+    {word:"facilitate",pron:"/fəˈsɪlɪteɪt/",pos:"動詞",answer:"促進する・容易にする",ex:"<em>Facilitate</em> the process.（プロセスを促進してください。）"},
+    {word:"feasible",pron:"/ˈfiːzɪbl/",pos:"形容詞",answer:"実現可能な",ex:"Is this plan <em>feasible</em>?（この計画は実現可能ですか？）"},
+    {word:"fluctuate",pron:"/ˈflʌktʃueɪt/",pos:"動詞",answer:"変動する",ex:"Prices <em>fluctuate</em> daily.（価格は毎日変動します。）"},
+    {word:"forecast",pron:"/ˈfɔːrkæst/",pos:"動詞",answer:"予測する",ex:"<em>Forecast</em> annual revenue.（年間収益を予測してください。）"},
+    {word:"formulate",pron:"/ˈfɔːrmjuleɪt/",pos:"動詞",answer:"策定する",ex:"<em>Formulate</em> a new strategy.（新しい戦略を策定してください。）"},
+    {word:"franchise",pron:"/ˈfrænʧaɪz/",pos:"名詞",answer:"フランチャイズ",ex:"Open a <em>franchise</em>.（フランチャイズを開業してください。）"},
+    {word:"fulfill",pron:"/fʊlˈfɪl/",pos:"動詞",answer:"果たす",ex:"<em>Fulfill</em> the contract terms.（契約条件を履行してください。）"},
+    {word:"generate",pron:"/ˈdʒɛnəreɪt/",pos:"動詞",answer:"創出する",ex:"<em>Generate</em> more revenue.（より多くの収益を創出してください。）"},
+    {word:"governance",pron:"/ˈɡʌvənəns/",pos:"名詞",answer:"ガバナンス・管理",ex:"Strengthen corporate <em>governance</em>.（企業ガバナンスを強化してください。）"},
+    {word:"guarantee",pron:"/ˌɡærənˈtiː/",pos:"動詞/名詞",answer:"保証する・保証",ex:"We <em>guarantee</em> satisfaction.（満足を保証します。）"},
+    {word:"hierarchy",pron:"/ˈhaɪərɑːrki/",pos:"名詞",answer:"階層・序列",ex:"Understand the company <em>hierarchy</em>.（会社の階層を理解してください。）"},
+    {word:"implication",pron:"/ˌɪmplɪˈkeɪʃn/",pos:"名詞",answer:"影響・含意",ex:"Consider the <em>implications</em>.（影響を考慮してください。）"},
+    {word:"incentive",pron:"/ɪnˈsɛntɪv/",pos:"名詞",answer:"インセンティブ・奨励",ex:"Offer an <em>incentive</em>.（インセンティブを提供してください。）"},
+    {word:"incur",pron:"/ɪnˈkɜːr/",pos:"動詞",answer:"被る・生じさせる",ex:"<em>Incur</em> additional costs.（追加費用が生じる。）"},
+    {word:"indispensable",pron:"/ˌɪndɪˈspɛnsəbl/",pos:"形容詞",answer:"不可欠な",ex:"This tool is <em>indispensable</em>.（このツールは不可欠です。）"},
+    {word:"infrastructure",pron:"/ˈɪnfrəstrʌktʃər/",pos:"名詞",answer:"インフラ",ex:"Invest in <em>infrastructure</em>.（インフラに投資してください。）"},
+    {word:"initiative",pron:"/ɪˈnɪʃɪɪtɪv/",pos:"名詞",answer:"新施策・取り組み",ex:"Launch a new <em>initiative</em>.（新しい取り組みを始めてください。）"},
+    {word:"innovate",pron:"/ˈɪnəveɪt/",pos:"動詞",answer:"革新する",ex:"<em>Innovate</em> to stay competitive.（競争力を維持するために革新してください。）"},
+    {word:"inspection",pron:"/ɪnˈspɛkʃn/",pos:"名詞",answer:"視察・点検",ex:"Schedule a site <em>inspection</em>.（現地視察をスケジュールしてください。）"},
+    {word:"integrate",pron:"/ˈɪntɪɡreɪt/",pos:"動詞",answer:"統合する",ex:"<em>Integrate</em> the new system.（新しいシステムを統合してください。）"},
+    {word:"intellectual",pron:"/ˌɪntəˈlɛktʃuəl/",pos:"形容詞",answer:"知的な",ex:"Protect <em>intellectual</em> property.（知的財産を保護してください。）"},
+    {word:"interim",pron:"/ˈɪntərɪm/",pos:"形容詞",answer:"暫定的な",ex:"She is the <em>interim</em> manager.（彼女は暫定マネージャーです。）"},
+    {word:"jurisdiction",pron:"/ˌdʒʊərɪsˈdɪkʃn/",pos:"名詞",answer:"管轄権",ex:"This falls under our <em>jurisdiction</em>.（これは当社の管轄下にあります。）"},
+    {word:"launch",pron:"/lɔːntʃ/",pos:"動詞",answer:"立ち上げる",ex:"<em>Launch</em> a new campaign.（新キャンペーンを立ち上げてください。）"},
+    {word:"liability",pron:"/ˌlaɪəˈbɪlɪti/",pos:"名詞",answer:"負債・責任",ex:"Limit your <em>liability</em>.（責任を限定してください。）"},
+    {word:"logistics",pron:"/ləˈdʒɪstɪks/",pos:"名詞",answer:"物流・ロジスティクス",ex:"Improve the <em>logistics</em>.（物流を改善してください。）"},
+    {word:"mandate",pron:"/ˈmændeɪt/",pos:"名詞",answer:"権限・命令",ex:"Follow the <em>mandate</em>.（命令に従ってください。）"},
+    {word:"manuscript",pron:"/ˈmænjuskrɪpt/",pos:"名詞",answer:"原稿",ex:"Submit the <em>manuscript</em>.（原稿を提出してください。）"},
+    {word:"mediate",pron:"/ˈmiːdieɪt/",pos:"動詞",answer:"仲介する",ex:"<em>Mediate</em> between parties.（当事者間を仲介してください。）"},
+    {word:"mentor",pron:"/ˈmɛntɔːr/",pos:"名詞",answer:"メンター・指導者",ex:"Find a business <em>mentor</em>.（ビジネスメンターを見つけてください。）"},
+    {word:"milestone",pron:"/ˈmaɪlstəʊn/",pos:"名詞",answer:"マイルストーン・重要な節目",ex:"Reach the first <em>milestone</em>.（最初のマイルストーンに到達してください。）"},
+    {word:"minimize",pron:"/ˈmɪnɪmaɪz/",pos:"動詞",answer:"最小限にする",ex:"<em>Minimize</em> operational risks.（業務リスクを最小限にしてください。）"},
+    {word:"misconduct",pron:"/mɪsˈkɒndʌkt/",pos:"名詞",answer:"不正行為",ex:"Report any <em>misconduct</em>.（不正行為を報告してください。）"},
+    {word:"motivate",pron:"/ˈmoʊtɪveɪt/",pos:"動詞",answer:"動機付けする",ex:"<em>Motivate</em> your team.（チームを動機付けしてください。）"},
+    {word:"mutual",pron:"/ˈmjuːtʃuəl/",pos:"形容詞",answer:"相互の",ex:"Work for <em>mutual</em> benefit.（相互利益のために働いてください。）"},
+    {word:"objective",pron:"/əbˈdʒɛktɪv/",pos:"形容詞",answer:"客観的な",ex:"Be <em>objective</em> in your analysis.（分析において客観的でいてください。）"},
+    {word:"obligation",pron:"/ˌɒblɪˈɡeɪʃn/",pos:"名詞",answer:"義務",ex:"Meet your contractual <em>obligations</em>.（契約上の義務を果たしてください。）"},
+    {word:"optimal",pron:"/ˈɒptɪməl/",pos:"形容詞",answer:"最適な",ex:"Find the <em>optimal</em> solution.（最適な解決策を見つけてください。）"},
+    {word:"optimize",pron:"/ˈɒptɪmaɪz/",pos:"動詞",answer:"最適化する",ex:"<em>Optimize</em> the workflow.（ワークフローを最適化してください。）"},
+    {word:"outsource",pron:"/ˈaʊtsɔːrs/",pos:"動詞",answer:"外注する",ex:"<em>Outsource</em> IT services.（ITサービスを外注してください。）"},
+    {word:"overhead",pron:"/ˈoʊvərhɛd/",pos:"名詞",answer:"間接費・経費",ex:"Reduce <em>overhead</em> costs.（間接費を削減してください。）"},
+    {word:"overlap",pron:"/ˌoʊvərˈlæp/",pos:"動詞",answer:"重なる・重複する",ex:"The schedules <em>overlap</em>.（スケジュールが重複しています。）"},
+    {word:"oversee",pron:"/ˌoʊvərˈsiː/",pos:"動詞",answer:"監督する",ex:"<em>Oversee</em> the project.（プロジェクトを監督してください。）"},
+    {word:"ownership",pron:"/ˈoʊnərʃɪp/",pos:"名詞",answer:"所有権",ex:"Transfer <em>ownership</em>.（所有権を移転してください。）"},
+    {word:"paradigm",pron:"/ˈpærədaɪm/",pos:"名詞",answer:"パラダイム・模範",ex:"Shift the business <em>paradigm</em>.（ビジネスのパラダイムを転換してください。）"},
+    {word:"patent",pron:"/ˈpeɪtənt/",pos:"名詞",answer:"特許",ex:"Apply for a <em>patent</em>.（特許を申請してください。）"},
+    {word:"penetrate",pron:"/ˈpɛnɪtreɪt/",pos:"動詞",answer:"参入する・浸透する",ex:"<em>Penetrate</em> the new market.（新市場に参入してください。）"},
+    {word:"petition",pron:"/pɪˈtɪʃn/",pos:"名詞",answer:"請願・申請",ex:"Submit a <em>petition</em>.（請願書を提出してください。）"},
+    {word:"portfolio",pron:"/pɔːrtˈfoʊlioʊ/",pos:"名詞",answer:"ポートフォリオ",ex:"Review the investment <em>portfolio</em>.（投資ポートフォリオを確認してください。）"},
+    {word:"preceding",pron:"/prɪˈsiːdɪŋ/",pos:"形容詞",answer:"前の・先行する",ex:"Refer to the <em>preceding</em> report.（前の報告書を参照してください。）"},
+    {word:"preliminary",pron:"/prɪˈlɪmɪneri/",pos:"形容詞",answer:"予備的な",ex:"Conduct a <em>preliminary</em> study.（予備調査を行ってください。）"},
+    {word:"prerequisite",pron:"/ˌpriːˈrɛkwɪzɪt/",pos:"名詞",answer:"前提条件",ex:"This is a <em>prerequisite</em>.（これは前提条件です。）"},
+    {word:"proactive",pron:"/ˌproʊˈæktɪv/",pos:"形容詞",answer:"積極的な・先手を打つ",ex:"Be <em>proactive</em> in problem-solving.（問題解決に積極的でいてください。）"},
+    {word:"productivity",pron:"/ˌprɒdʌkˈtɪvɪti/",pos:"名詞",answer:"生産性",ex:"Improve team <em>productivity</em>.（チームの生産性を改善してください。）"},
+    {word:"proficient",pron:"/prəˈfɪʃnt/",pos:"形容詞",answer:"熟練した",ex:"She is <em>proficient</em> in Excel.（彼女はExcelに熟練しています。）"},
+    {word:"progressive",pron:"/prəˈɡrɛsɪv/",pos:"形容詞",answer:"進歩的な",ex:"Take a <em>progressive</em> approach.（進歩的なアプローチを取ってください。）"},
+    {word:"prohibit",pron:"/prəˈhɪbɪt/",pos:"動詞",answer:"禁止する",ex:"Smoking is <em>prohibited</em>.（喫煙は禁止されています。）"},
+    {word:"prompt",pron:"/prɒmpt/",pos:"形容詞",answer:"迅速な",ex:"Expect a <em>prompt</em> response.（迅速な返答を期待してください。）"},
+    {word:"ratify",pron:"/ˈrætɪfaɪ/",pos:"動詞",answer:"批准する・承認する",ex:"The board will <em>ratify</em> the agreement.（取締役会が合意を批准します。）"},
+    {word:"reimbursement",pron:"/ˌriːɪmˈbɜːrsmənt/",pos:"名詞",answer:"払い戻し・精算",ex:"Submit for <em>reimbursement</em>.（払い戻しの申請をしてください。）"},
+    {word:"reinforce",pron:"/ˌriːɪnˈfɔːrs/",pos:"動詞",answer:"強化する",ex:"<em>Reinforce</em> safety measures.（安全対策を強化してください。）"},
+    {word:"relevant",pron:"/ˈrɛlɪvənt/",pos:"形容詞",answer:"関連性のある",ex:"Provide <em>relevant</em> data.（関連データを提供してください。）"},
+    {word:"remedy",pron:"/ˈrɛmɪdi/",pos:"名詞",answer:"解決策・救済措置",ex:"Find a <em>remedy</em> for the issue.（問題の解決策を見つけてください。）"},
+    {word:"reputable",pron:"/ˈrɛpjutəbl/",pos:"形容詞",answer:"評判の良い",ex:"Work with a <em>reputable</em> firm.（評判の良い会社と取引してください。）"},
+    {word:"restructure",pron:"/ˌriːˈstrʌktʃər/",pos:"動詞",answer:"再編する",ex:"<em>Restructure</em> the department.（部門を再編してください。）"},
+    {word:"retain",pron:"/rɪˈteɪn/",pos:"動詞",answer:"維持する・保持する",ex:"<em>Retain</em> top talent.（優秀な人材を維持してください。）"},
+    {word:"revenue",pron:"/ˈrɛvənjuː/",pos:"名詞",answer:"売上高",ex:"Boost <em>revenue</em> growth.（収益成長を促進してください。）"},
+    {word:"rigid",pron:"/ˈrɪdʒɪd/",pos:"形容詞",answer:"厳格な・硬直した",ex:"Avoid a <em>rigid</em> approach.（硬直したアプローチを避けてください。）"},
+    {word:"roster",pron:"/ˈrɒstər/",pos:"名詞",answer:"名簿・シフト表",ex:"Check the staff <em>roster</em>.（スタッフのシフト表を確認してください。）"},
+    {word:"scalable",pron:"/ˈskeɪləbl/",pos:"形容詞",answer:"拡張可能な",ex:"Build a <em>scalable</em> system.（拡張可能なシステムを構築してください。）"},
+    {word:"scrutinize",pron:"/ˈskruːtɪnaɪz/",pos:"動詞",answer:"精査する",ex:"<em>Scrutinize</em> the data.（データを精査してください。）"},
+    {word:"solicit",pron:"/səˈlɪsɪt/",pos:"動詞",answer:"募る・依頼する",ex:"<em>Solicit</em> feedback from clients.（クライアントからフィードバックを募ってください。）"},
+    {word:"speculation",pron:"/ˌspɛkjuˈleɪʃn/",pos:"名詞",answer:"憶測・投機",ex:"Avoid <em>speculation</em>.（憶測を避けてください。）"},
+    {word:"sponsor",pron:"/ˈspɒnsər/",pos:"動詞",answer:"後援する",ex:"<em>Sponsor</em> the annual conference.（年次会議を後援してください。）"},
+    {word:"standardize",pron:"/ˈstændədaɪz/",pos:"動詞",answer:"標準化する",ex:"<em>Standardize</em> the process.（プロセスを標準化してください。）"},
+    {word:"statute",pron:"/ˈstætʃuːt/",pos:"名詞",answer:"法令・規定",ex:"Follow the <em>statute</em>.（法令に従ってください。）"},
+    {word:"streamline",pron:"/ˈstriːmlaɪn/",pos:"動詞",answer:"合理化する・効率化する",ex:"<em>Streamline</em> the process.（プロセスを合理化してください。）"},
+    {word:"subsidiary",pron:"/səbˈsɪdiəri/",pos:"名詞",answer:"子会社",ex:"Manage the <em>subsidiary</em>.（子会社を管理してください。）"},
+    {word:"surplus",pron:"/ˈsɜːrpləs/",pos:"名詞",answer:"余剰・黒字",ex:"Use the budget <em>surplus</em>.（予算の余剰を活用してください。）"},
+    {word:"suspend",pron:"/səˈspɛnd/",pos:"動詞",answer:"停止する・保留する",ex:"<em>Suspend</em> the project temporarily.（プロジェクトを一時的に停止してください。）"},
+    {word:"synergy",pron:"/ˈsɪnədʒi/",pos:"名詞",answer:"シナジー・相乗効果",ex:"Create <em>synergy</em> between departments.（部門間のシナジーを生み出してください。）"},
+    {word:"tactful",pron:"/ˈtæktfəl/",pos:"形容詞",answer:"機転の利く",ex:"Be <em>tactful</em> with feedback.（フィードバックには機転を利かせてください。）"},
+    {word:"tangible",pron:"/ˈtændʒɪbl/",pos:"形容詞",answer:"具体的な・有形の",ex:"Show <em>tangible</em> results.（具体的な結果を示してください。）"},
+    {word:"trademark",pron:"/ˈtreɪdmɑːrk/",pos:"名詞",answer:"商標",ex:"Register your <em>trademark</em>.（商標を登録してください。）"},
+    {word:"transaction",pron:"/trænˈzækʃn/",pos:"名詞",answer:"取引・トランザクション",ex:"Process the <em>transaction</em>.（取引を処理してください。）"},
+    {word:"transparent",pron:"/trænsˈpærənt/",pos:"形容詞",answer:"透明な・公明正大な",ex:"Be <em>transparent</em> with stakeholders.（ステークホルダーに対して透明でいてください。）"},
+    {word:"unanimous",pron:"/juːˈnænɪməs/",pos:"形容詞",answer:"全会一致の",ex:"The vote was <em>unanimous</em>.（投票は全会一致でした。）"},
+    {word:"undermine",pron:"/ˌʌndərˈmaɪn/",pos:"動詞",answer:"損なう・弱体化させる",ex:"Don't <em>undermine</em> team morale.（チームの士気を損なわないでください。）"},
+    {word:"utilize",pron:"/ˈjuːtɪlaɪz/",pos:"動詞",answer:"活用する",ex:"<em>Utilize</em> technology effectively.（テクノロジーを効果的に活用してください。）"},
+    {word:"validate",pron:"/ˈvælɪdeɪt/",pos:"動詞",answer:"検証する・承認する",ex:"<em>Validate</em> the data.（データを検証してください。）"},
+    {word:"vendor",pron:"/ˈvɛndər/",pos:"名詞",answer:"外部業者",ex:"Evaluate each <em>vendor</em> carefully.（各業者を慎重に評価してください。）"},
+    {word:"viable",pron:"/ˈvaɪəbl/",pos:"形容詞",answer:"実行可能な",ex:"Is this a <em>viable</em> option?（これは実行可能な選択肢ですか？）"},
+    {word:"workforce",pron:"/ˈwɜːrkfɔːrs/",pos:"名詞",answer:"労働力・従業員",ex:"Develop the <em>workforce</em>.（労働力を育成してください。）"},
+    {word:"yield",pron:"/jiːld/",pos:"動詞/名詞",answer:"生み出す・利回り",ex:"This investment <em>yields</em> 5%.（この投資は5%の利回りを生み出します。）"},
   ],
   advanced: [
     { word: "amalgamate",  pron: "/əˈmælɡəmeɪt/",   pos: "動詞",   answer: "合併する・統合する",  choices: ["合併する・統合する","分割する","廃止する","拡大する"],  ex: "The two firms will <em>amalgamate</em>. （2社は合併します。）" },
@@ -573,6 +1303,183 @@ const WORDS = {
     { word: "leverage",    pron: "/ˈlɛvərɪdʒ/",     pos: "動詞",   answer: "活用する・梃入れする", choices: ["活用する・梃入れする","無視する","減少させる","廃棄する"], ex: "We should <em>leverage</em> our strengths. （私たちの強みを活用すべきです。）" },
     { word: "mitigate",    pron: "/ˈmɪtɪɡeɪt/",     pos: "動詞",   answer: "軽減する・緩和する", choices: ["軽減する・緩和する","増大させる","確定させる","複雑にする"], ex: "We must <em>mitigate</em> the risks. （リスクを軽減しなければなりません。）" },
     { word: "supersede",   pron: "/ˌsuːpərˈsiːd/",  pos: "動詞",   answer: "取って代わる・廃止する", choices: ["取って代わる・廃止する","補完する","支持する","維持する"], ex: "This policy will <em>supersede</em> the old one. （この方針は古い方針に取って代わります。）" },
+    {word:"abeyance",pron:"/əˈbeɪəns/",pos:"名詞",answer:"停止・中断状態",ex:"The project is held in <em>abeyance</em>.（プロジェクトは中断状態にあります。）"},
+    {word:"accolade",pron:"/ˈækəleɪd/",pos:"名詞",answer:"称賛・栄誉",ex:"She received many <em>accolades</em>.（彼女は多くの称賛を受けました。）"},
+    {word:"adjudicate",pron:"/əˈdʒuːdɪkeɪt/",pos:"動詞",answer:"裁定する",ex:"The committee will <em>adjudicate</em>.（委員会が裁定します。）"},
+    {word:"admonish",pron:"/ədˈmɒnɪʃ/",pos:"動詞",answer:"警告する・諭す",ex:"The manager <em>admonished</em> the team.（マネージャーはチームに警告しました。）"},
+    {word:"adverse",pron:"/ˈædvɜːrs/",pos:"形容詞",answer:"不利な・逆境の",ex:"<em>Adverse</em> conditions affected sales.（不利な条件が売上に影響しました。）"},
+    {word:"affidavit",pron:"/ˌæfɪˈdeɪvɪt/",pos:"名詞",answer:"宣誓供述書",ex:"Submit an <em>affidavit</em>.（宣誓供述書を提出してください。）"},
+    {word:"allegation",pron:"/ˌælɪˈɡeɪʃn/",pos:"名詞",answer:"申し立て・告発",ex:"Investigate the <em>allegations</em>.（申し立てを調査してください。）"},
+    {word:"allocution",pron:"/ˌæləˈkjuːʃn/",pos:"名詞",answer:"公式声明",ex:"Deliver an <em>allocution</em>.（公式声明を述べてください。）"},
+    {word:"ambiguous",pron:"/æmˈbɪɡjuəs/",pos:"形容詞",answer:"曖昧な",ex:"The contract terms are <em>ambiguous</em>.（契約条件が曖昧です。）"},
+    {word:"ameliorate",pron:"/əˈmiːliəreɪt/",pos:"動詞",answer:"改善する",ex:"<em>Ameliorate</em> working conditions.（労働条件を改善してください。）"},
+    {word:"amortize",pron:"/ˈæmərtaɪz/",pos:"動詞",answer:"償却する",ex:"<em>Amortize</em> the loan over 10 years.（ローンを10年で償却してください。）"},
+    {word:"ancillary",pron:"/ænˈsɪləri/",pos:"形容詞",answer:"補助的な・付随する",ex:"Provide <em>ancillary</em> services.（補助的なサービスを提供してください。）"},
+    {word:"annex",pron:"/ˈænɛks/",pos:"動詞",answer:"併合する・付加する",ex:"<em>Annex</em> the additional clause.（追加条項を付加してください。）"},
+    {word:"anomaly",pron:"/əˈnɒməli/",pos:"名詞",answer:"異常・例外",ex:"Detect any <em>anomaly</em> in the data.（データの異常を検出してください。）"},
+    {word:"antitrust",pron:"/ˌæntiˈtrʌst/",pos:"形容詞",answer:"独占禁止の",ex:"Comply with <em>antitrust</em> law.（独占禁止法を遵守してください。）"},
+    {word:"approbation",pron:"/ˌæprəˈbeɪʃn/",pos:"名詞",answer:"公式承認",ex:"Seek board <em>approbation</em>.（取締役会の公式承認を求めてください。）"},
+    {word:"arbitrage",pron:"/ˈɑːrbɪtrɑːʒ/",pos:"名詞",answer:"裁定取引",ex:"Profit from <em>arbitrage</em>.（裁定取引で利益を得る。）"},
+    {word:"ascertain",pron:"/ˌæsəˈteɪn/",pos:"動詞",answer:"確認する・突き止める",ex:"<em>Ascertain</em> the root cause.（根本原因を突き止めてください。）"},
+    {word:"assiduous",pron:"/əˈsɪdjuəs/",pos:"形容詞",answer:"勤勉な・精励する",ex:"She is an <em>assiduous</em> employee.（彼女は勤勉な従業員です。）"},
+    {word:"attrition",pron:"/əˈtrɪʃn/",pos:"名詞",answer:"消耗・自然減",ex:"High <em>attrition</em> is costly.（高い自然減はコストがかかります。）"},
+    {word:"augment",pron:"/ɔːɡˈmɛnt/",pos:"動詞",answer:"増大させる",ex:"<em>Augment</em> the workforce.（労働力を増強してください。）"},
+    {word:"auspicious",pron:"/ɔːˈspɪʃəs/",pos:"形容詞",answer:"幸先の良い",ex:"An <em>auspicious</em> start to Q1.（第1四半期の幸先の良いスタート。）"},
+    {word:"autonomous",pron:"/ɔːˈtɒnəməs/",pos:"形容詞",answer:"自律的な",ex:"Create an <em>autonomous</em> team.（自律的なチームを作ってください。）"},
+    {word:"benchmark",pron:"/ˈbɛntʃmɑːrk/",pos:"動詞",answer:"基準と比較する",ex:"<em>Benchmark</em> against competitors.（競合他社と基準を比較してください。）"},
+    {word:"beneficiary",pron:"/ˌbɛnɪˈfɪʃieri/",pos:"名詞",answer:"受益者",ex:"Name a <em>beneficiary</em>.（受益者を指定してください。）"},
+    {word:"bilateral",pron:"/baɪˈlætərəl/",pos:"形容詞",answer:"二者間の",ex:"Sign a <em>bilateral</em> trade deal.（二者間の貿易協定を締結してください。）"},
+    {word:"bureaucratic",pron:"/ˌbjʊərəˈkrætɪk/",pos:"形容詞",answer:"官僚的な",ex:"Cut <em>bureaucratic</em> red tape.（官僚的な煩雑な手続きを排除してください。）"},
+    {word:"catalyst",pron:"/ˈkætəlɪst/",pos:"名詞",answer:"触媒・起爆剤",ex:"This merger is a <em>catalyst</em> for growth.（この合併は成長の起爆剤です。）"},
+    {word:"caveat",pron:"/ˈkæviæt/",pos:"名詞",answer:"但し書き・警告",ex:"Note the <em>caveat</em> in the contract.（契約書の但し書きに注意してください。）"},
+    {word:"circumvent",pron:"/ˌsɜːrkəmˈvɛnt/",pos:"動詞",answer:"回避する",ex:"<em>Circumvent</em> unnecessary delays.（不必要な遅延を回避してください。）"},
+    {word:"coerce",pron:"/koʊˈɜːrs/",pos:"動詞",answer:"強制する",ex:"Do not <em>coerce</em> employees.（従業員を強制しないでください。）"},
+    {word:"cogent",pron:"/ˈkoʊdʒənt/",pos:"形容詞",answer:"説得力のある",ex:"Present a <em>cogent</em> argument.（説得力のある議論を提示してください。）"},
+    {word:"commensurate",pron:"/kəˈmɛnʃərɪt/",pos:"形容詞",answer:"釣り合った",ex:"Salary <em>commensurate</em> with experience.（経験に釣り合った給与。）"},
+    {word:"compel",pron:"/kəmˈpɛl/",pos:"動詞",answer:"強いる",ex:"Circumstances <em>compel</em> us to act.（状況が私たちに行動を強います。）"},
+    {word:"competency",pron:"/ˈkɒmpɪtənsi/",pos:"名詞",answer:"能力・コンピテンシー",ex:"Assess leadership <em>competency</em>.（リーダーシップのコンピテンシーを評価してください。）"},
+    {word:"concede",pron:"/kənˈsiːd/",pos:"動詞",answer:"認める・譲歩する",ex:"<em>Concede</em> the point in negotiation.（交渉で論点を譲歩してください。）"},
+    {word:"conciliation",pron:"/kənˌsɪliˈeɪʃn/",pos:"名詞",answer:"和解・調停",ex:"Seek <em>conciliation</em>.（和解を求めてください。）"},
+    {word:"conduit",pron:"/ˈkɒndjuɪt/",pos:"名詞",answer:"導管・仲介",ex:"Act as a <em>conduit</em> between teams.（チーム間の仲介役を担ってください。）"},
+    {word:"confiscate",pron:"/ˈkɒnfɪskeɪt/",pos:"動詞",answer:"没収する",ex:"Assets may be <em>confiscated</em>.（資産が没収される場合があります。）"},
+    {word:"conglomerate",pron:"/kənˈɡlɒmərɪt/",pos:"名詞",answer:"複合企業",ex:"The <em>conglomerate</em> spans five industries.（その複合企業は5つの業界にまたがっています。）"},
+    {word:"conjecture",pron:"/kənˈdʒɛktʃər/",pos:"名詞",answer:"推測",ex:"Avoid <em>conjecture</em> in reports.（報告書では推測を避けてください。）"},
+    {word:"contingency",pron:"/kənˈtɪndʒənsi/",pos:"名詞",answer:"不測の事態・予備費",ex:"Set aside a <em>contingency</em> fund.（予備費を確保してください。）"},
+    {word:"contraction",pron:"/kənˈtrækʃn/",pos:"名詞",answer:"収縮・縮小",ex:"Market <em>contraction</em> is expected.（市場の縮小が予想されます。）"},
+    {word:"contravene",pron:"/ˌkɒntrəˈviːn/",pos:"動詞",answer:"違反する",ex:"Do not <em>contravene</em> regulations.（規制に違反しないでください。）"},
+    {word:"conveyance",pron:"/kənˈveɪəns/",pos:"名詞",answer:"譲渡・輸送手段",ex:"Process the property <em>conveyance</em>.（不動産の譲渡手続きを進めてください。）"},
+    {word:"copious",pron:"/ˈkoʊpiəs/",pos:"形容詞",answer:"豊富な・大量の",ex:"Take <em>copious</em> notes.（豊富なメモを取ってください。）"},
+    {word:"culminate",pron:"/ˈkʌlmɪneɪt/",pos:"動詞",answer:"最高潮に達する",ex:"Efforts <em>culminated</em> in success.（努力が実を結びました。）"},
+    {word:"cumulative",pron:"/ˈkjuːmjulətɪv/",pos:"形容詞",answer:"累積的な",ex:"Track <em>cumulative</em> revenue.（累積収益を追跡してください。）"},
+    {word:"deferral",pron:"/dɪˈfɜːrəl/",pos:"名詞",answer:"延期・繰り延べ",ex:"Request a payment <em>deferral</em>.（支払い延期を申請してください。）"},
+    {word:"delineate",pron:"/dɪˈlɪnieɪt/",pos:"動詞",answer:"明確に示す",ex:"<em>Delineate</em> roles clearly.（役割を明確に示してください。）"},
+    {word:"deregulate",pron:"/ˌdiːˈrɛɡjuleɪt/",pos:"動詞",answer:"規制緩和する",ex:"The government will <em>deregulate</em> the sector.（政府はその分野を規制緩和します。）"},
+    {word:"derivative",pron:"/dɪˈrɪvətɪv/",pos:"名詞",answer:"デリバティブ・派生物",ex:"Trade financial <em>derivatives</em>.（金融デリバティブを取引する。）"},
+    {word:"designate",pron:"/ˈdɛzɪɡneɪt/",pos:"動詞",answer:"指定する",ex:"<em>Designate</em> a compliance officer.（コンプライアンス担当者を指定してください。）"},
+    {word:"devolve",pron:"/dɪˈvɒlv/",pos:"動詞",answer:"委譲する",ex:"<em>Devolve</em> authority to regional offices.（地域オフィスに権限を委譲してください。）"},
+    {word:"discrepancy",pron:"/dɪˈskrɛpənsi/",pos:"名詞",answer:"不一致・差異",ex:"Resolve the <em>discrepancy</em> in accounts.（口座の不一致を解決してください。）"},
+    {word:"divestiture",pron:"/daɪˈvɛstɪtʃər/",pos:"名詞",answer:"資産売却",ex:"Proceed with the <em>divestiture</em>.（資産売却を進めてください。）"},
+    {word:"dormant",pron:"/ˈdɔːrmənt/",pos:"形容詞",answer:"休眠中の",ex:"The account is <em>dormant</em>.（その口座は休眠中です。）"},
+    {word:"due diligence",pron:"/ˌdjuː ˈdɪlɪdʒəns/",pos:"名詞",answer:"デューデリジェンス",ex:"Conduct <em>due diligence</em>.（デューデリジェンスを実施してください。）"},
+    {word:"earmark",pron:"/ˈɪərˌmɑːrk/",pos:"動詞",answer:"指定する・充当する",ex:"<em>Earmark</em> funds for R&D.（研究開発に資金を充当してください。）"},
+    {word:"ecclesiastical",pron:"/ɪˌkliːziˈæstɪkl/",pos:"形容詞",answer:"教会の・宗教的な",ex:"Review <em>ecclesiastical</em> regulations.（宗教的規制を確認してください。）"},
+    {word:"efficacy",pron:"/ˈɛfɪkəsi/",pos:"名詞",answer:"有効性",ex:"Measure the <em>efficacy</em> of the plan.（計画の有効性を測定してください。）"},
+    {word:"embezzle",pron:"/ɪmˈbɛzl/",pos:"動詞",answer:"横領する",ex:"He was caught <em>embezzling</em> funds.（彼は資金を横領して捕まりました。）"},
+    {word:"eminent",pron:"/ˈɛmɪnənt/",pos:"形容詞",answer:"著名な・卓越した",ex:"An <em>eminent</em> economist spoke.（著名な経済学者が講演しました。）"},
+    {word:"empirical",pron:"/ɪmˈpɪrɪkl/",pos:"形容詞",answer:"実証的な",ex:"Provide <em>empirical</em> evidence.（実証的な証拠を提供してください。）"},
+    {word:"encroach",pron:"/ɪnˈkroʊtʃ/",pos:"動詞",answer:"侵害する・侵食する",ex:"Do not <em>encroach</em> on IP rights.（知的財産権を侵害しないでください。）"},
+    {word:"endorse",pron:"/ɪnˈdɔːrs/",pos:"動詞",answer:"承認する・裏書きする",ex:"<em>Endorse</em> the check.（小切手に裏書きしてください。）"},
+    {word:"enumerate",pron:"/ɪˈnjuːməreɪt/",pos:"動詞",answer:"列挙する",ex:"<em>Enumerate</em> all the risks.（すべてのリスクを列挙してください。）"},
+    {word:"equitable",pron:"/ˈɛkwɪtəbl/",pos:"形容詞",answer:"公平な",ex:"Ensure an <em>equitable</em> distribution.（公平な配分を確保してください。）"},
+    {word:"escrow",pron:"/ˈɛskroʊ/",pos:"名詞",answer:"エスクロー・第三者預託",ex:"Hold funds in <em>escrow</em>.（資金をエスクローで保管してください。）"},
+    {word:"exacerbate",pron:"/ɪɡˈzæsərbeɪt/",pos:"動詞",answer:"悪化させる",ex:"Delays <em>exacerbate</em> the problem.（遅延が問題を悪化させます。）"},
+    {word:"expedient",pron:"/ɪkˈspiːdiənt/",pos:"形容詞",answer:"便宜的な・実利的な",ex:"Choose the most <em>expedient</em> path.（最も実利的な道を選んでください。）"},
+    {word:"explicit",pron:"/ɪkˈsplɪsɪt/",pos:"形容詞",answer:"明示的な",ex:"Provide <em>explicit</em> instructions.（明示的な指示を提供してください。）"},
+    {word:"expropriation",pron:"/ɪkˌsproʊpriˈeɪʃn/",pos:"名詞",answer:"収用",ex:"Fight against <em>expropriation</em>.（収用に反対してください。）"},
+    {word:"extrapolate",pron:"/ɪkˈstræpəleɪt/",pos:"動詞",answer:"推定する・外挿する",ex:"<em>Extrapolate</em> future trends.（将来のトレンドを推定してください。）"},
+    {word:"fiduciary",pron:"/fɪˈdjuːʃieri/",pos:"形容詞",answer:"受託者の・信任の",ex:"Fulfill <em>fiduciary</em> duties.（受託者の義務を果たしてください。）"},
+    {word:"forfeit",pron:"/ˈfɔːrfɪt/",pos:"動詞",answer:"没収される・失う",ex:"You may <em>forfeit</em> the deposit.（保証金を没収される可能性があります。）"},
+    {word:"formidable",pron:"/ˈfɔːrmɪdəbl/",pos:"形容詞",answer:"手ごわい・強大な",ex:"Face a <em>formidable</em> competitor.（手ごわい競合に直面する。）"},
+    {word:"foster",pron:"/ˈfɒstər/",pos:"動詞",answer:"育む・促進する",ex:"<em>Foster</em> a culture of innovation.（イノベーション文化を育んでください。）"},
+    {word:"fraudulent",pron:"/ˈfrɔːdjulənt/",pos:"形容詞",answer:"不正な・詐欺的な",ex:"Detect <em>fraudulent</em> transactions.（不正な取引を検出してください。）"},
+    {word:"fungible",pron:"/ˈfʌndʒɪbl/",pos:"形容詞",answer:"代替可能な",ex:"Cash is a <em>fungible</em> asset.（現金は代替可能な資産です。）"},
+    {word:"garnish",pron:"/ˈɡɑːrnɪʃ/",pos:"動詞",answer:"差し押さえる",ex:"The court may <em>garnish</em> wages.（裁判所が賃金を差し押さえる可能性があります。）"},
+    {word:"gratuitous",pron:"/ɡrəˈtjuːɪtəs/",pos:"形容詞",answer:"不必要な・無償の",ex:"Avoid <em>gratuitous</em> expenditure.（不必要な支出を避けてください。）"},
+    {word:"grievance",pron:"/ˈɡriːvəns/",pos:"名詞",answer:"苦情・不満",ex:"File a formal <em>grievance</em>.（正式な苦情を申し立ててください。）"},
+    {word:"hedge",pron:"/hɛdʒ/",pos:"動詞",answer:"ヘッジする・リスク回避する",ex:"<em>Hedge</em> against currency risk.（為替リスクをヘッジしてください。）"},
+    {word:"hypothesis",pron:"/haɪˈpɒθɪsɪs/",pos:"名詞",answer:"仮説",ex:"Test the <em>hypothesis</em>.（仮説を検証してください。）"},
+    {word:"imminent",pron:"/ˈɪmɪnənt/",pos:"形容詞",answer:"差し迫った",ex:"An <em>imminent</em> deadline.（差し迫った締め切り。）"},
+    {word:"impeccable",pron:"/ɪmˈpɛkəbl/",pos:"形容詞",answer:"非の打ちどころのない",ex:"Maintain an <em>impeccable</em> record.（非の打ちどころのない記録を維持してください。）"},
+    {word:"implicit",pron:"/ɪmˈplɪsɪt/",pos:"形容詞",answer:"暗黙の",ex:"There is an <em>implicit</em> agreement.（暗黙の合意があります。）"},
+    {word:"impound",pron:"/ɪmˈpaʊnd/",pos:"動詞",answer:"差し押さえる",ex:"Assets were <em>impounded</em>.（資産が差し押さえられました。）"},
+    {word:"inadvertent",pron:"/ˌɪnədˈvɜːrtənt/",pos:"形容詞",answer:"不注意な・意図しない",ex:"An <em>inadvertent</em> error occurred.（意図しないエラーが発生しました。）"},
+    {word:"incorporate",pron:"/ɪnˈkɔːrpəreɪt/",pos:"動詞",answer:"法人化する・組み込む",ex:"<em>Incorporate</em> the feedback.（フィードバックを組み込んでください。）"},
+    {word:"indemnify",pron:"/ɪnˈdɛmnɪfaɪ/",pos:"動詞",answer:"補償する・賠償する",ex:"The insurer will <em>indemnify</em> you.（保険会社が補償します。）"},
+    {word:"insolvent",pron:"/ɪnˈsɒlvənt/",pos:"形容詞",answer:"支払い不能の",ex:"The firm became <em>insolvent</em>.（会社は支払い不能になりました。）"},
+    {word:"intangible",pron:"/ɪnˈtændʒɪbl/",pos:"形容詞",answer:"無形の",ex:"Value <em>intangible</em> assets.（無形資産を評価してください。）"},
+    {word:"intrinsic",pron:"/ɪnˈtrɪnsɪk/",pos:"形容詞",answer:"本来の・固有の",ex:"Focus on <em>intrinsic</em> value.（本来の価値に注目してください。）"},
+    {word:"inundate",pron:"/ˈɪnəndeɪt/",pos:"動詞",answer:"殺到する・溢れさせる",ex:"We were <em>inundated</em> with requests.（リクエストが殺到しました。）"},
+    {word:"irrevocable",pron:"/ɪˈrɛvəkəbl/",pos:"形容詞",answer:"取り消しのできない",ex:"The decision is <em>irrevocable</em>.（その決定は取り消せません。）"},
+    {word:"jeopardize",pron:"/ˈdʒɛpədaɪz/",pos:"動詞",answer:"危険にさらす",ex:"Don't <em>jeopardize</em> the deal.（取引を危険にさらさないでください。）"},
+    {word:"jurisprudence",pron:"/ˌdʒʊərɪsˈpruːdəns/",pos:"名詞",answer:"法学・判例法",ex:"Study commercial <em>jurisprudence</em>.（商業法学を研究してください。）"},
+    {word:"laissez-faire",pron:"/ˌlɛseɪˈfɛər/",pos:"形容詞",answer:"自由放任の",ex:"A <em>laissez-faire</em> approach.（自由放任のアプローチ。）"},
+    {word:"latent",pron:"/ˈleɪtənt/",pos:"形容詞",answer:"潜在的な",ex:"Uncover <em>latent</em> demand.（潜在的な需要を発掘してください。）"},
+    {word:"liquidate",pron:"/ˈlɪkwɪdeɪt/",pos:"動詞",answer:"清算する",ex:"<em>Liquidate</em> the assets.（資産を清算してください。）"},
+    {word:"litigation",pron:"/ˌlɪtɪˈɡeɪʃn/",pos:"名詞",answer:"訴訟",ex:"Avoid costly <em>litigation</em>.（費用のかかる訴訟を避けてください。）"},
+    {word:"macroeconomic",pron:"/ˌmækroʊˌiːkəˈnɒmɪk/",pos:"形容詞",answer:"マクロ経済の",ex:"Analyze <em>macroeconomic</em> trends.（マクロ経済のトレンドを分析してください。）"},
+    {word:"malfeasance",pron:"/mælˈfiːzəns/",pos:"名詞",answer:"不正行為・職権乱用",ex:"Investigate <em>malfeasance</em>.（不正行為を調査してください。）"},
+    {word:"mandate",pron:"/ˈmændeɪt/",pos:"動詞",answer:"義務付ける",ex:"The law <em>mandates</em> disclosure.（法律は情報開示を義務付けています。）"},
+    {word:"manifest",pron:"/ˈmænɪfɛst/",pos:"動詞",answer:"明示する・現れる",ex:"Problems <em>manifested</em> quickly.（問題がすぐに現れました。）"},
+    {word:"meticulous",pron:"/mɪˈtɪkjuləs/",pos:"形容詞",answer:"細心の・几帳面な",ex:"Be <em>meticulous</em> in record-keeping.（記録管理には細心の注意を払ってください。）"},
+    {word:"moratorium",pron:"/ˌmɒrəˈtɔːriəm/",pos:"名詞",answer:"モラトリアム・一時停止",ex:"Issue a <em>moratorium</em> on hiring.（採用の一時停止を発令してください。）"},
+    {word:"nascent",pron:"/ˈnæsənt/",pos:"形容詞",answer:"初期段階の・発生期の",ex:"A <em>nascent</em> technology.（初期段階の技術。）"},
+    {word:"noncompliance",pron:"/ˌnɒnkəmˈplaɪəns/",pos:"名詞",answer:"不遵守",ex:"Penalize <em>noncompliance</em>.（不遵守を罰してください。）"},
+    {word:"novation",pron:"/noʊˈveɪʃn/",pos:"名詞",answer:"更改・債務交替",ex:"Agree to contract <em>novation</em>.（契約の更改に同意してください。）"},
+    {word:"nullify",pron:"/ˈnʌlɪfaɪ/",pos:"動詞",answer:"無効にする",ex:"<em>Nullify</em> the agreement.（合意を無効にしてください。）"},
+    {word:"obfuscate",pron:"/ˈɒbfʌskeɪt/",pos:"動詞",answer:"曖昧にする・難解にする",ex:"Don't <em>obfuscate</em> the facts.（事実を曖昧にしないでください。）"},
+    {word:"onerous",pron:"/ˈɒnərəs/",pos:"形容詞",answer:"負担の重い",ex:"The terms are <em>onerous</em>.（条件は負担が重い。）"},
+    {word:"opportunistic",pron:"/ˌɒpətjuːˈnɪstɪk/",pos:"形容詞",answer:"日和見的な",ex:"Avoid <em>opportunistic</em> pricing.（日和見的な価格設定を避けてください。）"},
+    {word:"ostensible",pron:"/ɒˈstɛnsɪbl/",pos:"形容詞",answer:"表向きの",ex:"The <em>ostensible</em> reason differed.（表向きの理由は異なりました。）"},
+    {word:"overhaul",pron:"/ˈoʊvərhɔːl/",pos:"動詞",answer:"全面的に改良する",ex:"<em>Overhaul</em> the legacy system.（レガシーシステムを全面的に改良してください。）"},
+    {word:"paramount",pron:"/ˈpærəmaʊnt/",pos:"形容詞",answer:"最重要の",ex:"Safety is of <em>paramount</em> importance.（安全が最重要です。）"},
+    {word:"parity",pron:"/ˈpærɪti/",pos:"名詞",answer:"同等・均等",ex:"Achieve pay <em>parity</em>.（給与の同等性を実現してください。）"},
+    {word:"pecuniary",pron:"/pɪˈkjuːniəri/",pos:"形容詞",answer:"金銭的な",ex:"Seek <em>pecuniary</em> compensation.（金銭的補償を求めてください。）"},
+    {word:"perpetuate",pron:"/pərˈpɛtʃueɪt/",pos:"動詞",answer:"永続させる",ex:"Don't <em>perpetuate</em> inefficiency.（非効率を永続させないでください。）"},
+    {word:"pertinent",pron:"/ˈpɜːrtɪnənt/",pos:"形容詞",answer:"適切な・関連する",ex:"Provide <em>pertinent</em> information.（適切な情報を提供してください。）"},
+    {word:"plausible",pron:"/ˈplɔːzɪbl/",pos:"形容詞",answer:"もっともらしい",ex:"Give a <em>plausible</em> explanation.（もっともらしい説明をしてください。）"},
+    {word:"precipitate",pron:"/prɪˈsɪpɪteɪt/",pos:"動詞",answer:"引き起こす・促進する",ex:"The error <em>precipitated</em> a crisis.（エラーが危機を引き起こしました。）"},
+    {word:"preclude",pron:"/prɪˈkluːd/",pos:"動詞",answer:"妨げる・不可能にする",ex:"Budget cuts <em>preclude</em> new hires.（予算削減により新規採用ができません。）"},
+    {word:"predatory",pron:"/ˈprɛdətɔːri/",pos:"形容詞",answer:"略奪的な",ex:"Avoid <em>predatory</em> pricing.（略奪的な価格設定を避けてください。）"},
+    {word:"prerogative",pron:"/prɪˈrɒɡətɪv/",pos:"名詞",answer:"特権",ex:"It is management's <em>prerogative</em>.（それは経営陣の特権です。）"},
+    {word:"probity",pron:"/ˈproʊbɪti/",pos:"名詞",answer:"誠実さ・高潔",ex:"Act with <em>probity</em>.（誠実に行動してください。）"},
+    {word:"proclivity",pron:"/prəˈklɪvɪti/",pos:"名詞",answer:"傾向・性癖",ex:"A <em>proclivity</em> for risk-taking.（リスク志向の傾向。）"},
+    {word:"prolific",pron:"/prəˈlɪfɪk/",pos:"形容詞",answer:"多産の・多作な",ex:"A <em>prolific</em> inventor.（多作な発明家。）"},
+    {word:"promulgate",pron:"/ˈprɒmlɡeɪt/",pos:"動詞",answer:"公布する",ex:"<em>Promulgate</em> the new regulation.（新しい規制を公布してください。）"},
+    {word:"proprietary",pron:"/prəˈpraɪɪtəri/",pos:"形容詞",answer:"独自の・専有の",ex:"This is <em>proprietary</em> technology.（これは独自技術です。）"},
+    {word:"prospectus",pron:"/prəˈspɛktəs/",pos:"名詞",answer:"目論見書・説明書",ex:"Review the <em>prospectus</em>.（目論見書を確認してください。）"},
+    {word:"punitive",pron:"/ˈpjuːnɪtɪv/",pos:"形容詞",answer:"懲罰的な",ex:"Avoid <em>punitive</em> damages.（懲罰的損害賠償を避けてください。）"},
+    {word:"quorum",pron:"/ˈkwɔːrəm/",pos:"名詞",answer:"定足数",ex:"Achieve a <em>quorum</em>.（定足数を達成してください。）"},
+    {word:"rationale",pron:"/ˌræʃəˈnæl/",pos:"名詞",answer:"根拠・論理的根拠",ex:"Explain the <em>rationale</em>.（根拠を説明してください。）"},
+    {word:"recourse",pron:"/ˈriːkɔːrs/",pos:"名詞",answer:"頼みの綱・手段",ex:"Legal <em>recourse</em> is available.（法的手段が使えます。）"},
+    {word:"rectify",pron:"/ˈrɛktɪfaɪ/",pos:"動詞",answer:"是正する",ex:"<em>Rectify</em> the discrepancy.（不一致を是正してください。）"},
+    {word:"redress",pron:"/rɪˈdrɛs/",pos:"名詞",answer:"是正・救済",ex:"Seek <em>redress</em> for damages.（損害の救済を求めてください。）"},
+    {word:"remittance",pron:"/rɪˈmɪtəns/",pos:"名詞",answer:"送金",ex:"Process the <em>remittance</em>.（送金を処理してください。）"},
+    {word:"repudiate",pron:"/rɪˈpjuːdieɪt/",pos:"動詞",answer:"否認する・拒絶する",ex:"<em>Repudiate</em> the false claim.（虚偽の主張を否認してください。）"},
+    {word:"restitution",pron:"/ˌrɛstɪˈtjuːʃn/",pos:"名詞",answer:"賠償・返還",ex:"Pay full <em>restitution</em>.（全額賠償してください。）"},
+    {word:"reticent",pron:"/ˈrɛtɪsənt/",pos:"形容詞",answer:"口の重い・控えめな",ex:"He was <em>reticent</em> about details.（彼は詳細については口が重かった。）"},
+    {word:"retrospective",pron:"/ˌrɛtrəˈspɛktɪv/",pos:"形容詞",answer:"遡及的な",ex:"Apply <em>retrospective</em> changes carefully.（遡及的な変更は慎重に適用してください。）"},
+    {word:"revoke",pron:"/rɪˈvoʊk/",pos:"動詞",answer:"撤回する・取り消す",ex:"<em>Revoke</em> the license.（ライセンスを取り消してください。）"},
+    {word:"rigorous",pron:"/ˈrɪɡərəs/",pos:"形容詞",answer:"厳密な・綿密な",ex:"Conduct a <em>rigorous</em> review.（厳密な審査を行ってください。）"},
+    {word:"sanction",pron:"/ˈsæŋkʃn/",pos:"名詞",answer:"制裁・承認",ex:"Impose <em>sanctions</em>.（制裁を科してください。）"},
+    {word:"scrutiny",pron:"/ˈskruːtɪni/",pos:"名詞",answer:"精査・綿密な調査",ex:"Under public <em>scrutiny</em>.（公の精査の下で。）"},
+    {word:"solvency",pron:"/ˈsɒlvənsi/",pos:"名詞",answer:"支払い能力",ex:"Maintain financial <em>solvency</em>.（財務上の支払い能力を維持してください。）"},
+    {word:"sovereign",pron:"/ˈsɒvrɪn/",pos:"形容詞",answer:"主権の",ex:"Respect <em>sovereign</em> rights.（主権的権利を尊重してください。）"},
+    {word:"statutory",pron:"/ˈstætʃutɔːri/",pos:"形容詞",answer:"法定の",ex:"Meet <em>statutory</em> requirements.（法定要件を満たしてください。）"},
+    {word:"subpoena",pron:"/səˈpiːnə/",pos:"名詞",answer:"召喚状",ex:"Receive a <em>subpoena</em>.（召喚状を受け取る。）"},
+    {word:"subrogation",pron:"/ˌsʌbrəˈɡeɪʃn/",pos:"名詞",answer:"代位弁済",ex:"Exercise <em>subrogation</em> rights.（代位弁済権を行使してください。）"},
+    {word:"succinct",pron:"/səkˈsɪŋkt/",pos:"形容詞",answer:"簡潔な",ex:"Be <em>succinct</em> in your proposal.（提案書は簡潔にしてください。）"},
+    {word:"superfluous",pron:"/suːˈpɜːrfluəs/",pos:"形容詞",answer:"余分な・不必要な",ex:"Remove <em>superfluous</em> clauses.（不必要な条項を削除してください。）"},
+    {word:"surpass",pron:"/sərˈpæs/",pos:"動詞",answer:"上回る・凌ぐ",ex:"We <em>surpassed</em> our target.（目標を上回りました。）"},
+    {word:"synergistic",pron:"/ˌsɪnərˈdʒɪstɪk/",pos:"形容詞",answer:"相乗的な",ex:"A <em>synergistic</em> partnership.（相乗的なパートナーシップ。）"},
+    {word:"tacit",pron:"/ˈtæsɪt/",pos:"形容詞",answer:"暗黙の",ex:"A <em>tacit</em> understanding.（暗黙の了解。）"},
+    {word:"tenacious",pron:"/tɪˈneɪʃəs/",pos:"形容詞",answer:"粘り強い",ex:"A <em>tenacious</em> negotiator.（粘り強い交渉担当者。）"},
+    {word:"tenure",pron:"/ˈtɛnjər/",pos:"名詞",answer:"在任期間・終身在職権",ex:"Extend her <em>tenure</em>.（彼女の在任期間を延長してください。）"},
+    {word:"terminate",pron:"/ˈtɜːrmɪneɪt/",pos:"動詞",answer:"終了する・解雇する",ex:"<em>Terminate</em> the contract.（契約を終了してください。）"},
+    {word:"tort",pron:"/tɔːrt/",pos:"名詞",answer:"不法行為",ex:"File a <em>tort</em> claim.（不法行為の申し立てをしてください。）"},
+    {word:"transparency",pron:"/trænsˈpærənsi/",pos:"名詞",answer:"透明性",ex:"Promote financial <em>transparency</em>.（財務の透明性を促進してください。）"},
+    {word:"tribunal",pron:"/traɪˈbjuːnl/",pos:"名詞",answer:"裁判所・審判",ex:"Appear before the <em>tribunal</em>.（裁判所に出廷してください。）"},
+    {word:"unequivocal",pron:"/ˌʌnɪˈkwɪvəkl/",pos:"形容詞",answer:"明確な・疑いのない",ex:"Give an <em>unequivocal</em> answer.（明確な答えを述べてください。）"},
+    {word:"untenable",pron:"/ʌnˈtɛnəbl/",pos:"形容詞",answer:"支持できない",ex:"The position is <em>untenable</em>.（その立場は支持できません。）"},
+    {word:"usurp",pron:"/juːˈzɜːrp/",pos:"動詞",answer:"不当に奪う",ex:"Do not <em>usurp</em> authority.（権限を不当に奪わないでください。）"},
+    {word:"validate",pron:"/ˈvælɪdeɪt/",pos:"動詞",answer:"妥当性を確認する",ex:"<em>Validate</em> the contract terms.（契約条件の妥当性を確認してください。）"},
+    {word:"vested",pron:"/ˈvɛstɪd/",pos:"形容詞",answer:"既得の・付与された",ex:"Protect <em>vested</em> interests.（既得権益を保護してください。）"},
+    {word:"viable",pron:"/ˈvaɪəbl/",pos:"形容詞",answer:"実行可能な",ex:"A financially <em>viable</em> plan.（財務的に実行可能な計画。）"},
+    {word:"vindicate",pron:"/ˈvɪndɪkeɪt/",pos:"動詞",answer:"無実を証明する・正当化する",ex:"The results <em>vindicated</em> the strategy.（結果が戦略を正当化しました。）"},
+    {word:"volatile",pron:"/ˈvɒlətaɪl/",pos:"形容詞",answer:"変動しやすい",ex:"Markets are <em>volatile</em>.（市場は変動しやすい。）"},
+    {word:"waive",pron:"/weɪv/",pos:"動詞",answer:"放棄する・免除する",ex:"<em>Waive</em> the fee.（手数料を免除してください。）"},
+    {word:"warranted",pron:"/ˈwɒrəntɪd/",pos:"形容詞",answer:"正当な・保証された",ex:"The action is fully <em>warranted</em>.（その行動は完全に正当です。）"},
+    {word:"windfall",pron:"/ˈwɪndfɔːl/",pos:"名詞",answer:"思わぬ利益",ex:"Benefit from a <em>windfall</em>.（思わぬ利益を得る。）"},
+    {word:"writ",pron:"/rɪt/",pos:"名詞",answer:"令状",ex:"Issue a <em>writ</em>.（令状を発行してください。）"},
   ]
 };
 
@@ -628,6 +1535,11 @@ function shuffle(arr) {
   return a;
 }
 
+function generateChoices(q, pool) {
+  const others = shuffle(pool.filter(w => w.answer !== q.answer)).slice(0, 3);
+  return shuffle([q.answer, ...others.map(w => w.answer)]);
+}
+
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -636,11 +1548,14 @@ function show(id) {
 function setHeaderMode(mode) {
   const header = document.getElementById('app-header');
   const sub    = document.getElementById('header-sub');
+  header.className = '';
   if (mode === 'review') {
     header.classList.add('review-mode');
     sub.textContent = '苦手単語を集中復習！';
+  } else if (mode === 'vocab') {
+    header.style.background = '#059669';
+    sub.textContent = 'レベル別単語一覧';
   } else {
-    header.classList.remove('review-mode');
     sub.textContent = '4択で力試し！初心者向け';
   }
 }
@@ -762,7 +1677,8 @@ function renderQuestion() {
   const choicesEl = document.getElementById('choices');
   choicesEl.innerHTML = '';
   const letters  = ['A', 'B', 'C', 'D'];
-  const shuffled = shuffle(q.choices);
+  const lvl      = state.mode === 'review' ? (q._level || state.level) : state.level;
+  const shuffled = generateChoices(q, WORDS[lvl]);
 
   shuffled.forEach((choice, i) => {
     const btn = document.createElement('button');
@@ -834,6 +1750,11 @@ function selectAnswer(choice, q) {
   fb.classList.add('show');
 
   document.getElementById('btn-next').classList.add('show');
+
+  // ① 自動スクロール
+  setTimeout(() => {
+    document.getElementById('btn-next').scrollIntoView({behavior:'smooth', block:'nearest'});
+  }, 150);
 }
 
 // ===== NEXT QUESTION =====
@@ -949,6 +1870,80 @@ document.getElementById('btn-back').addEventListener('click', () => {
   refreshStart();
   show('screen-start');
 });
+
+// ===== VOCAB LIST =====
+let vocabLevel  = 'beginner';
+let vocabFilter = 'all';
+
+document.getElementById('btn-vocab').addEventListener('click', () => {
+  vocabLevel  = state.level;
+  vocabFilter = 'all';
+  setHeaderMode('vocab');
+  show('screen-vocab');
+  syncVocabTabs();
+  renderVocabList();
+});
+
+document.getElementById('vocab-back').addEventListener('click', () => {
+  setHeaderMode('challenge');
+  refreshStart();
+  show('screen-start');
+});
+
+document.querySelectorAll('.vocab-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.vocab-tab').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    vocabLevel = btn.dataset.level;
+    renderVocabList();
+  });
+});
+
+document.querySelectorAll('.vocab-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.vocab-filter').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    vocabFilter = btn.dataset.filter;
+    renderVocabList();
+  });
+});
+
+function syncVocabTabs() {
+  document.querySelectorAll('.vocab-tab').forEach(b => {
+    b.classList.toggle('selected', b.dataset.level === vocabLevel);
+  });
+}
+
+function renderVocabList() {
+  const pool     = WORDS[vocabLevel];
+  const wrongIds = new Set(loadWrongWords().map(w => w._id));
+  const filtered = vocabFilter === 'wrong'
+    ? pool.filter(w => wrongIds.has(vocabLevel + ':' + w.word))
+    : pool;
+
+  const wrongCount = pool.filter(w => wrongIds.has(vocabLevel + ':' + w.word)).length;
+  document.getElementById('vocab-stats').textContent =
+    `全${pool.length}語　苦手：${wrongCount}語`;
+
+  const container = document.getElementById('vocab-list');
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--subtext);">表示する単語がありません</div>';
+    return;
+  }
+  container.innerHTML = filtered.map(w => {
+    const isWrong = wrongIds.has(vocabLevel + ':' + w.word);
+    return `<div class="vocab-item${isWrong ? ' is-wrong' : ''}">
+      <div>
+        <div class="vocab-item-word">${w.word}</div>
+        <div class="vocab-item-meta">${w.pron}　${w.pos}</div>
+      </div>
+      <div class="vocab-item-answer">
+        ${w.answer}
+        ${isWrong ? '<br><span class="vocab-wrong-badge">苦手</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
 
 // ===== INIT =====
 refreshStart();
